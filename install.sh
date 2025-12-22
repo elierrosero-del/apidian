@@ -97,7 +97,7 @@ echo -e "${GREEN}✓ Docker instalado${NC}"
 # ============================================
 # 2. CREAR DOCKERFILE PHP 7.4 (IDÉNTICO AL LOCAL)
 # ============================================
-echo -e "${YELLOW}[2/8] Creando Dockerfile PHP 7.4...${NC}"
+echo -e "${YELLOW}[2/9] Creando Dockerfile PHP 7.3...${NC}"
 
 mkdir -p docker/php docker/nginx docker/mariadb
 
@@ -490,8 +490,6 @@ echo -e "${YELLOW}[4/9] Creando docker-compose.yml...${NC}"
 if [ "$USE_SSL" = true ]; then
     # Docker Compose con SSL optimizado para máximo rendimiento
     cat > docker-compose.yml << DOCKERCOMPOSE
-version: '3.8'
-
 services:
     nginx:
         build:
@@ -640,8 +638,6 @@ DOCKERCOMPOSE
 else
     # Docker Compose sin SSL optimizado para máximo rendimiento
     cat > docker-compose.yml << DOCKERCOMPOSE
-version: '3.8'
-
 services:
     nginx:
         build:
@@ -909,11 +905,78 @@ echo "Eliminando composer.lock incompatible..."
 rm -f composer.lock
 rm -rf vendor
 
+# Crear composer.json optimizado para PHP 7.3 (evitar vulnerabilidades)
+cat > composer.json << 'COMPOSERJSON'
+{
+    "name": "apidian/apidian",
+    "description": "API DIAN Colombia - Facturación Electrónica",
+    "keywords": ["framework", "laravel", "dian", "facturacion"],
+    "license": "MIT",
+    "type": "project",
+    "require": {
+        "php": "^7.3",
+        "laravel/framework": "5.8.*",
+        "barryvdh/laravel-dompdf": "^0.8.0",
+        "dompdf/dompdf": "^0.8.0",
+        "maatwebsite/excel": "^3.1",
+        "stenfrank/ubl21dian": "^1.0"
+    },
+    "require-dev": {
+        "filp/whoops": "^2.0",
+        "fzaninotto/faker": "^1.4",
+        "mockery/mockery": "^1.0",
+        "nunomaduro/collision": "^3.0",
+        "phpunit/phpunit": "^7.5"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "audit": {
+            "block-insecure": false
+        }
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        },
+        "classmap": [
+            "database/seeds",
+            "database/factories"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "scripts": {
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi"
+        ]
+    }
+}
+COMPOSERJSON
+
 # Permisos (según guía: chmod -R 777 storage bootstrap/cache vendor/mpdf/mpdf)
 chmod -R 777 storage bootstrap/cache
 
 # Composer install (regenerará composer.lock para PHP 7.3)
-docker compose exec -T php composer install --no-dev --optimize-autoloader --ignore-platform-reqs
+docker compose exec -T php composer install --no-dev --optimize-autoloader --ignore-platform-reqs --no-audit
 
 # Ejecutar urn_on.sh (según guía - CRÍTICO para firma DIAN)
 if [ -f "urn_on.sh" ]; then
