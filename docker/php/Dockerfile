@@ -45,8 +45,8 @@ RUN docker-php-ext-configure gd --with-freetype-dir=/usr/include/ --with-jpeg-di
 # Instalar imagick via PECL (versión compatible con PHP 7.3)
 RUN pecl install imagick-3.4.4 && docker-php-ext-enable imagick
 
-# Instalar Composer 2
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+# Instalar Composer 2.2 (versión compatible con PHP 7.3 sin audit)
+COPY --from=composer:2.2 /usr/bin/composer /usr/bin/composer
 
 # Configurar PHP para rendimiento (según guía original)
 RUN echo "upload_max_filesize=100M" >> /usr/local/etc/php/conf.d/custom.ini \
