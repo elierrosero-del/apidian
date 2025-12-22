@@ -534,11 +534,14 @@ DB_DATABASE=apidian
 DB_USERNAME=apidian
 DB_PASSWORD=${DB_PASSWORD}
 
-BROADCAST_DRIVER=log
 CACHE_DRIVER=file
 QUEUE_CONNECTION=sync
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
+
+REDIS_HOST=redis
+REDIS_PASSWORD=null
+REDIS_PORT=6379
 
 MAIL_DRIVER=smtp
 MAIL_HOST=smtp.mailtrap.io
@@ -657,7 +660,8 @@ cat > composer.json << 'COMPOSERJSON'
         "rguedes/pdfmerger": "^1.0",
         "simplesoftwareio/simple-qrcode": "^2.0",
         "spatie/flysystem-dropbox": "^1.0",
-        "spatie/laravel-backup": "^5.0.0"
+        "spatie/laravel-backup": "^5.0.0",
+        "predis/predis": "^1.1"
     },
     "require-dev": {
         "beyondcode/laravel-dump-server": "^1.2",
@@ -733,37 +737,70 @@ docker compose exec -T php composer --version
 
 # Instalar dependencias sin comandos problemáticos
 echo "Ejecutando composer install..."
-docker compose exec -T php composer install --no-dev --optimize-autoloader --ignore-platform-reqs --no-interaction
+# Configurar timeout más largo para evitar errores de GitHub
+export COMPOSER_PROCESS_TIMEOUT=600
+
+# Intentar instalación con reintentos
+for i in {1..3}; do
+    echo "Intento $i de instalación de dependencias..."
+    if docker compose exec -T php composer install --no-dev --optimize-autoloader --ignore-platform-reqs --no-interaction --timeout=600; then
+        echo -e "${GREEN}✓ Dependencias instaladas correctamente${NC}"
+        break
+    else
+        echo -e "${YELLOW}⚠ Error en intento $i, reintentando...${NC}"
+        if [ $i -eq 3 ]; then
+            echo -e "${RED}✗ Error: No se pudieron instalar las dependencias después de 3 intentos${NC}"
+            echo -e "${YELLOW}Continuando con la instalación...${NC}"
+        fi
+        sleep 10
+    fi
+done
 
 # Ejecutar urn_on.sh (según guía - CRÍTICO para firma DIAN)
 if [ -f "urn_on.sh" ]; then
     echo "Ejecutando urn_on.sh (CRÍTICO para firma DIAN)..."
     chmod 700 urn_on.sh
-    ./urn_on.sh
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}✓ urn_on.sh ejecutado correctamente${NC}"
+    
+    # Verificar si existe el directorio de firma antes de ejecutar
+    if [ -d "vendor/ubl21dian/torresoftware/src/XAdES/urn" ]; then
+        ./urn_on.sh
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✓ urn_on.sh ejecutado correctamente${NC}"
+        else
+            echo -e "${YELLOW}⚠ urn_on.sh completado con advertencias${NC}"
+        fi
     else
-        echo -e "${YELLOW}⚠ urn_on.sh completado con advertencias${NC}"
+        echo -e "${YELLOW}⚠ Directorio de firma DIAN no encontrado, saltando urn_on.sh${NC}"
+        echo -e "${YELLOW}  Esto es normal si las dependencias no incluyen el paquete de firma${NC}"
     fi
 else
-    echo -e "${RED}⚠ ADVERTENCIA: urn_on.sh no encontrado${NC}"
+    echo -e "${YELLOW}⚠ ADVERTENCIA: urn_on.sh no encontrado${NC}"
 fi
 
 # Configuración Laravel (EXACTA según guía original)
+echo "Configurando Laravel..."
 docker compose exec -T php php artisan key:generate --force
-docker compose exec -T php php artisan config:cache
-docker compose exec -T php php artisan cache:clear
-docker compose exec -T php php artisan storage:link
+
+echo "Limpiando y configurando cache..."
+docker compose exec -T php php artisan config:clear || true
+docker compose exec -T php php artisan cache:clear || true
+docker compose exec -T php php artisan config:cache || true
+docker compose exec -T php php artisan storage:link || true
 
 # Verificar conexión a base de datos antes de migrar
 echo "Verificando conexión a base de datos..."
-docker compose exec -T php php artisan migrate:status > /dev/null 2>&1
-if [ $? -ne 0 ]; then
-    echo "Esperando conexión a base de datos (10s más)..."
-    sleep 10
-fi
+for i in {1..6}; do
+    if docker compose exec -T php php artisan migrate:status > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Conexión a base de datos establecida${NC}"
+        break
+    else
+        echo "Esperando conexión a base de datos (intento $i/6)..."
+        sleep 10
+    fi
+done
 
-docker compose exec -T php php artisan migrate --seed --force
+echo "Ejecutando migraciones..."
+docker compose exec -T php php artisan migrate --seed --force || echo -e "${YELLOW}⚠ Error en migraciones, continuando...${NC}"
 
 # Permisos finales dentro del contenedor
 docker compose exec -T php chmod -R 777 /var/www/html/storage

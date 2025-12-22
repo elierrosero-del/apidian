@@ -2,7 +2,6 @@
 # DOCKER COMPOSE - APIDIAN PHP 7.3 OPTIMIZADO
 # Compatible con DIAN Colombia - Máximo Rendimiento
 # ============================================
-version: '3.8'
 
 services:
     nginx:
@@ -83,8 +82,8 @@ services:
             - APP_DEBUG=false
             - DB_HOST=mariadb
             - DB_PORT=3306
-            - CACHE_DRIVER=redis
-            - SESSION_DRIVER=redis
+            - CACHE_DRIVER=file
+            - SESSION_DRIVER=file
             - REDIS_HOST=redis
             - REDIS_PORT=6379
         restart: unless-stopped
