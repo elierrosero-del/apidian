@@ -1,0 +1,56 @@
+version: '3'
+
+services:
+    nginx:
+        image: nginx:alpine
+        container_name: apidian_nginx
+        working_dir: /var/www/html
+        ports:
+            - "8081:80"
+        volumes:
+            - ./:/var/www/html:cached
+            - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+        depends_on:
+            - php
+        networks:
+            - api_dian
+    php:
+        build:
+            context: ./docker/php
+            dockerfile: Dockerfile
+        container_name: apidian_php
+        working_dir: /var/www/html
+        volumes:
+            - ./:/var/www/html:cached
+        depends_on:
+            - mariadb
+        networks:
+            - api_dian
+        environment:
+            - PHP_OPCACHE_ENABLE=1
+            - PHP_OPCACHE_VALIDATE_TIMESTAMPS=0
+    mariadb:
+        image: mariadb:10.5
+        container_name: apidian_mariadb
+        environment:
+            - MYSQL_USER=${MYSQL_USER}
+            - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+            - MYSQL_DATABASE=${MYSQL_DATABASE}
+            - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+        ports:
+            - "3307:3306"
+        volumes:
+            - apidian_mysql_data:/var/lib/mysql
+        networks:
+            - api_dian
+        command: --innodb-buffer-pool-size=256M --innodb-log-file-size=64M --innodb-flush-log-at-trx-commit=2
+
+networks:
+    api_dian:
+        driver: "bridge"
+
+volumes:
+    apidian_mysql_data:
+        driver: "local"
+    vendor_cache:
+        driver: "local"
