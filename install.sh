@@ -170,7 +170,7 @@ default-character-set = utf8
 MARIADBCONF
 
 cat > docker/php/Dockerfile << 'DOCKERFILE'
-FROM php:7.4-fpm
+FROM php:7.3-fpm
 
 # Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y \
@@ -211,8 +211,8 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
         imap \
         opcache
 
-# Instalar imagick via PECL (versión compatible con PHP 7.4)
-RUN pecl install imagick-3.6.0 && docker-php-ext-enable imagick
+# Instalar imagick via PECL (versión compatible con PHP 7.3)
+RUN pecl install imagick-3.4.4 && docker-php-ext-enable imagick
 
 # Instalar Composer 2
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -904,11 +904,16 @@ if [ -f "storage.zip" ]; then
     unzip -o storage.zip
 fi
 
+# Eliminar composer.lock problemático (incompatible con PHP 7.3)
+echo "Eliminando composer.lock incompatible..."
+rm -f composer.lock
+rm -rf vendor
+
 # Permisos (según guía: chmod -R 777 storage bootstrap/cache vendor/mpdf/mpdf)
 chmod -R 777 storage bootstrap/cache
 
-# Composer install
-docker compose exec -T php composer install --no-dev --optimize-autoloader
+# Composer install (regenerará composer.lock para PHP 7.3)
+docker compose exec -T php composer install --no-dev --optimize-autoloader --ignore-platform-reqs
 
 # Ejecutar urn_on.sh (según guía - CRÍTICO para firma DIAN)
 if [ -f "urn_on.sh" ]; then
