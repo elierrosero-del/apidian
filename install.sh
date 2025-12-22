@@ -580,8 +580,29 @@ echo -e "${YELLOW}[6/9] Construyendo contenedores...${NC}"
 docker compose build --no-cache --parallel
 docker compose up -d nginx php mariadb redis
 
-echo "Esperando a MariaDB (30s)..."
-sleep 30
+echo "Esperando a que MariaDB esté completamente listo..."
+# Esperar hasta que MariaDB acepte conexiones
+for i in 1 2 3 4 5 6 7 8 9 10; do
+    echo "Verificando MariaDB (intento $i/10)..."
+    if docker compose exec -T mariadb mysqladmin ping -h localhost -u root -p"${DB_ROOT_PASSWORD}" --silent 2>/dev/null; then
+        echo -e "${GREEN}✓ MariaDB está listo${NC}"
+        break
+    fi
+    sleep 10
+done
+
+# Crear usuario y permisos adicionales por si acaso
+echo "Configurando permisos de base de datos..."
+docker compose exec -T mariadb mysql -u root -p"${DB_ROOT_PASSWORD}" -e "
+    CREATE DATABASE IF NOT EXISTS apidian CHARACTER SET utf8 COLLATE utf8_spanish_ci;
+    CREATE USER IF NOT EXISTS 'apidian'@'%' IDENTIFIED BY '${DB_PASSWORD}';
+    GRANT ALL PRIVILEGES ON apidian.* TO 'apidian'@'%';
+    GRANT ALL PRIVILEGES ON apidian.* TO 'apidian'@'localhost';
+    GRANT ALL PRIVILEGES ON apidian.* TO 'apidian'@'172.20.0.%';
+    FLUSH PRIVILEGES;
+" 2>/dev/null || echo "Permisos ya configurados o MariaDB aún iniciando..."
+
+sleep 5
 
 echo -e "${GREEN}✓ Contenedores iniciados${NC}"
 
