@@ -737,20 +737,21 @@ docker compose exec -T php composer --version
 
 # Instalar dependencias sin comandos problemáticos
 echo "Ejecutando composer install..."
-# Configurar timeout más largo para evitar errores de GitHub
+
+# Configurar timeout via variable de entorno (compatible con Composer 2.2)
 export COMPOSER_PROCESS_TIMEOUT=600
 
 # Intentar instalación con reintentos
-for i in {1..3}; do
+for i in 1 2 3; do
     echo "Intento $i de instalación de dependencias..."
-    if docker compose exec -T php composer install --no-dev --optimize-autoloader --ignore-platform-reqs --no-interaction --timeout=600; then
+    if docker compose exec -T -e COMPOSER_PROCESS_TIMEOUT=600 php composer install --no-dev --optimize-autoloader --ignore-platform-reqs --no-interaction; then
         echo -e "${GREEN}✓ Dependencias instaladas correctamente${NC}"
         break
     else
         echo -e "${YELLOW}⚠ Error en intento $i, reintentando...${NC}"
         if [ $i -eq 3 ]; then
             echo -e "${RED}✗ Error: No se pudieron instalar las dependencias después de 3 intentos${NC}"
-            echo -e "${YELLOW}Continuando con la instalación...${NC}"
+            exit 1
         fi
         sleep 10
     fi
