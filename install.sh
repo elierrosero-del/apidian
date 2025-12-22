@@ -577,32 +577,67 @@ echo -e "${GREEN}✓ .env creado${NC}"
 # ============================================
 echo -e "${YELLOW}[6/9] Construyendo contenedores...${NC}"
 
-docker compose build --no-cache --parallel
-docker compose up -d nginx php mariadb redis
+# Crear script de inicialización de MariaDB
+mkdir -p docker/mariadb/init
+cat > docker/mariadb/init/01-init.sql << INITSQL
+-- Script de inicialización de MariaDB para APIDIAN
+-- Este script se ejecuta automáticamente al crear el contenedor
 
-echo "Esperando a que MariaDB esté completamente listo..."
-# Esperar hasta que MariaDB acepte conexiones
+-- Crear base de datos si no existe
+CREATE DATABASE IF NOT EXISTS apidian CHARACTER SET utf8 COLLATE utf8_spanish_ci;
+
+-- Crear usuario con acceso desde cualquier host
+CREATE USER IF NOT EXISTS 'apidian'@'%' IDENTIFIED BY '${DB_PASSWORD}';
+CREATE USER IF NOT EXISTS 'apidian'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
+CREATE USER IF NOT EXISTS 'apidian'@'172.%' IDENTIFIED BY '${DB_PASSWORD}';
+
+-- Otorgar todos los privilegios
+GRANT ALL PRIVILEGES ON apidian.* TO 'apidian'@'%';
+GRANT ALL PRIVILEGES ON apidian.* TO 'apidian'@'localhost';
+GRANT ALL PRIVILEGES ON apidian.* TO 'apidian'@'172.%';
+
+-- Permitir root desde cualquier host
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '${DB_ROOT_PASSWORD}' WITH GRANT OPTION;
+
+FLUSH PRIVILEGES;
+INITSQL
+
+echo "Script de inicialización de MariaDB creado"
+
+# Detener contenedores existentes y limpiar volúmenes de MariaDB
+echo "Limpiando instalación anterior de MariaDB..."
+docker compose down 2>/dev/null || true
+docker volume rm apidian_apidian_mysql_data 2>/dev/null || true
+
+# Construir imágenes
+docker compose build --no-cache --parallel
+
+# Iniciar contenedores
+docker compose up -d mariadb redis
+echo "Esperando a que MariaDB inicialice (60 segundos)..."
+sleep 60
+
+# Verificar que MariaDB esté listo
+echo "Verificando MariaDB..."
 for i in 1 2 3 4 5 6 7 8 9 10; do
     echo "Verificando MariaDB (intento $i/10)..."
-    if docker compose exec -T mariadb mysqladmin ping -h localhost -u root -p"${DB_ROOT_PASSWORD}" --silent 2>/dev/null; then
+    if docker compose exec -T mariadb mysqladmin ping -h localhost --silent 2>/dev/null; then
         echo -e "${GREEN}✓ MariaDB está listo${NC}"
-        break
+        # Verificar conexión con usuario apidian
+        if docker compose exec -T mariadb mysql -u apidian -p"${DB_PASSWORD}" -e "SELECT 1;" apidian 2>/dev/null; then
+            echo -e "${GREEN}✓ Usuario apidian puede conectarse${NC}"
+            break
+        else
+            echo "Esperando que el usuario apidian esté disponible..."
+        fi
     fi
     sleep 10
 done
 
-# Crear usuario y permisos adicionales por si acaso
-echo "Configurando permisos de base de datos..."
-docker compose exec -T mariadb mysql -u root -p"${DB_ROOT_PASSWORD}" -e "
-    CREATE DATABASE IF NOT EXISTS apidian CHARACTER SET utf8 COLLATE utf8_spanish_ci;
-    CREATE USER IF NOT EXISTS 'apidian'@'%' IDENTIFIED BY '${DB_PASSWORD}';
-    GRANT ALL PRIVILEGES ON apidian.* TO 'apidian'@'%';
-    GRANT ALL PRIVILEGES ON apidian.* TO 'apidian'@'localhost';
-    GRANT ALL PRIVILEGES ON apidian.* TO 'apidian'@'172.20.0.%';
-    FLUSH PRIVILEGES;
-" 2>/dev/null || echo "Permisos ya configurados o MariaDB aún iniciando..."
+# Iniciar PHP y Nginx
+docker compose up -d php nginx
 
-sleep 5
+sleep 10
 
 echo -e "${GREEN}✓ Contenedores iniciados${NC}"
 
