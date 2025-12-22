@@ -40,15 +40,32 @@ DB_ROOT_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 16)
 
 # Configuración
 echo -e "${YELLOW}Configuración:${NC}"
+read -p "Dominio (ej: apidian.clipers.pro) [localhost]: " DOMAIN
+DOMAIN=${DOMAIN:-localhost}
+
+read -p "Email para certificado SSL (requerido si usa dominio): " SSL_EMAIL
+
 read -p "Puerto HTTP [80]: " HTTP_PORT
 HTTP_PORT=${HTTP_PORT:-80}
+
+read -p "Puerto HTTPS [443]: " HTTPS_PORT
+HTTPS_PORT=${HTTPS_PORT:-443}
 
 read -p "Puerto MySQL externo [3306]: " MYSQL_PORT
 MYSQL_PORT=${MYSQL_PORT:-3306}
 
+# Determinar si usar SSL
+USE_SSL=false
+if [[ "$DOMAIN" != "localhost" && -n "$SSL_EMAIL" ]]; then
+    USE_SSL=true
+fi
+
 echo ""
 echo -e "${GREEN}Configuración seleccionada:${NC}"
+echo "  Dominio: $DOMAIN"
+echo "  SSL: $([ "$USE_SSL" = true ] && echo "Sí (Let's Encrypt)" || echo "No")"
 echo "  Puerto HTTP: $HTTP_PORT"
+echo "  Puerto HTTPS: $HTTPS_PORT"
 echo "  Puerto MySQL: $MYSQL_PORT"
 echo ""
 
@@ -82,7 +99,75 @@ echo -e "${GREEN}✓ Docker instalado${NC}"
 # ============================================
 echo -e "${YELLOW}[2/8] Creando Dockerfile PHP 7.4...${NC}"
 
-mkdir -p docker/php docker/nginx
+mkdir -p docker/php docker/nginx docker/mariadb
+
+# Crear configuración optimizada de MariaDB
+cat > docker/mariadb/my.cnf << 'MARIADBCONF'
+# ============================================
+# MARIADB OPTIMIZADO PARA MÁXIMO RENDIMIENTO
+# ============================================
+
+[mysqld]
+# Configuración básica
+user = mysql
+pid-file = /var/run/mysqld/mysqld.pid
+socket = /var/run/mysqld/mysqld.sock
+port = 3306
+basedir = /usr
+datadir = /var/lib/mysql
+tmpdir = /tmp
+lc-messages-dir = /usr/share/mysql
+
+# Charset optimizado para español
+character-set-server = utf8
+collation-server = utf8_spanish_ci
+init-connect = 'SET NAMES utf8'
+
+# InnoDB optimizado para máximo rendimiento
+innodb_buffer_pool_size = 512M
+innodb_log_file_size = 128M
+innodb_log_buffer_size = 32M
+innodb_flush_log_at_trx_commit = 2
+innodb_flush_method = O_DIRECT
+innodb_file_per_table = 1
+innodb_open_files = 400
+innodb_io_capacity = 400
+innodb_read_io_threads = 8
+innodb_write_io_threads = 8
+innodb_thread_concurrency = 16
+
+# Query Cache optimizado
+query_cache_type = 1
+query_cache_size = 64M
+query_cache_limit = 2M
+
+# Conexiones optimizadas
+max_connections = 200
+thread_cache_size = 50
+table_open_cache = 4000
+
+# Buffers optimizados
+sort_buffer_size = 4M
+read_buffer_size = 2M
+join_buffer_size = 8M
+tmp_table_size = 64M
+max_heap_table_size = 64M
+
+# Timeouts optimizados
+wait_timeout = 600
+interactive_timeout = 600
+
+# Optimizaciones adicionales
+skip-name-resolve
+skip-external-locking
+max_allowed_packet = 64M
+
+[mysql]
+default-character-set = utf8
+
+[client]
+default-character-set = utf8
+MARIADBCONF
 
 cat > docker/php/Dockerfile << 'DOCKERFILE'
 FROM php:7.4-fpm
@@ -167,61 +252,284 @@ DOCKERFILE
 echo -e "${GREEN}✓ Dockerfile creado${NC}"
 
 # ============================================
-# 3. CREAR CONFIGURACIÓN NGINX
+# 3. CREAR CONFIGURACIÓN NGINX CON SSL
 # ============================================
-echo -e "${YELLOW}[3/8] Creando configuración Nginx...${NC}"
+echo -e "${YELLOW}[3/9] Creando configuración Nginx...${NC}"
 
-cat > docker/nginx/default.conf << 'NGINXCONF'
+mkdir -p docker/nginx/sites-available
+
+if [ "$USE_SSL" = true ]; then
+    # Configuración con SSL optimizada para máximo rendimiento
+    cat > docker/nginx/sites-available/default.conf << NGINXCONF
+# ============================================
+# NGINX SSL - OPTIMIZADO PARA MÁXIMO RENDIMIENTO
+# ============================================
+
+# Rate limiting
+limit_req_zone \$binary_remote_addr zone=login:10m rate=1r/s;
+limit_req_zone \$binary_remote_addr zone=api:10m rate=20r/s;
+
+# Upstream PHP-FPM optimizado
+upstream php-fpm {
+    server php:9000;
+    keepalive 32;
+}
+
 server {
     listen 80;
-    server_name localhost;
+    server_name ${DOMAIN};
+    
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+    
+    # Redirigir HTTP a HTTPS
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+    
+    location / {
+        return 301 https://\$server_name\$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name ${DOMAIN};
+    
     root /var/www/html/public;
     index index.php index.html;
-
-    client_max_body_size 100M;
-
+    
+    # SSL Configuration optimizada
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    
+    # SSL Security optimizada
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:50m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+    
+    # OCSP stapling
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    
+    # Security Headers optimizados
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+    
+    # Cache de archivos estáticos optimizado
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2|ttf|svg)\$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header Vary Accept-Encoding;
+        access_log off;
+    }
+    
+    # API endpoints con rate limiting
+    location /api/ {
+        limit_req zone=api burst=50 nodelay;
+        try_files \$uri \$uri/ /index.php?\$query_string;
+    }
+    
     location / {
-        try_files $uri $uri/ /index.php?$query_string;
+        try_files \$uri \$uri/ /index.php?\$query_string;
     }
-
-    location ~ \.php$ {
-        fastcgi_pass php:9000;
+    
+    # PHP-FPM optimizado para máximo rendimiento
+    location ~ \.php\$ {
+        try_files \$uri =404;
+        fastcgi_split_path_info ^(.+\.php)(/.+)\$;
+        fastcgi_pass php-fpm;
         fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
         include fastcgi_params;
-        fastcgi_read_timeout 300;
+        
+        # Timeouts optimizados
+        fastcgi_connect_timeout 300s;
+        fastcgi_send_timeout 300s;
+        fastcgi_read_timeout 300s;
+        
+        # Buffers optimizados para máximo rendimiento
+        fastcgi_buffer_size 256k;
+        fastcgi_buffers 8 256k;
+        fastcgi_busy_buffers_size 512k;
+        fastcgi_temp_file_write_size 512k;
+        
+        # Cache de FastCGI
+        fastcgi_cache_bypass \$skip_cache;
+        fastcgi_no_cache \$skip_cache;
+        
+        # Headers optimizados
+        fastcgi_param HTTP_PROXY "";
+        fastcgi_param HTTPS on;
+        fastcgi_param SERVER_PORT 443;
     }
-
-    location ~ /\.ht {
+    
+    # Denegar acceso a archivos sensibles
+    location ~ /\.(?!well-known).* {
         deny all;
+        access_log off;
+        log_not_found off;
+    }
+    
+    location ~ ^/(\.user.ini|\.htaccess|\.htpasswd|\.sh|\.svn|\.git) {
+        return 404;
     }
 }
 NGINXCONF
+else
+    # Configuración sin SSL optimizada para máximo rendimiento
+    cat > docker/nginx/sites-available/default.conf << NGINXCONF
+# ============================================
+# NGINX HTTP - OPTIMIZADO PARA MÁXIMO RENDIMIENTO
+# ============================================
+
+# Rate limiting
+limit_req_zone \$binary_remote_addr zone=login:10m rate=1r/s;
+limit_req_zone \$binary_remote_addr zone=api:10m rate=20r/s;
+
+# Upstream PHP-FPM optimizado
+upstream php-fpm {
+    server php:9000;
+    keepalive 32;
+}
+
+server {
+    listen 80;
+    server_name ${DOMAIN};
+    root /var/www/html/public;
+    index index.php index.html;
+    
+    # Health check endpoint
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+    
+    # Cache de archivos estáticos optimizado
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2|ttf|svg)\$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header Vary Accept-Encoding;
+        access_log off;
+    }
+    
+    # API endpoints con rate limiting
+    location /api/ {
+        limit_req zone=api burst=50 nodelay;
+        try_files \$uri \$uri/ /index.php?\$query_string;
+    }
+    
+    location / {
+        try_files \$uri \$uri/ /index.php?\$query_string;
+    }
+    
+    # PHP-FPM optimizado para máximo rendimiento
+    location ~ \.php\$ {
+        try_files \$uri =404;
+        fastcgi_split_path_info ^(.+\.php)(/.+)\$;
+        fastcgi_pass php-fpm;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        include fastcgi_params;
+        
+        # Timeouts optimizados
+        fastcgi_connect_timeout 300s;
+        fastcgi_send_timeout 300s;
+        fastcgi_read_timeout 300s;
+        
+        # Buffers optimizados para máximo rendimiento
+        fastcgi_buffer_size 256k;
+        fastcgi_buffers 8 256k;
+        fastcgi_busy_buffers_size 512k;
+        fastcgi_temp_file_write_size 512k;
+        
+        # Cache de FastCGI
+        fastcgi_cache_bypass \$skip_cache;
+        fastcgi_no_cache \$skip_cache;
+    }
+    
+    # Denegar acceso a archivos sensibles
+    location ~ /\.ht {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+    
+    location ~ ^/(\.user.ini|\.htaccess|\.htpasswd|\.sh|\.svn|\.git) {
+        return 404;
+    }
+}
+NGINXCONF
+fi
 
 echo -e "${GREEN}✓ Nginx configurado${NC}"
 
 # ============================================
-# 4. CREAR DOCKER-COMPOSE (IDÉNTICO AL LOCAL)
+# 4. CREAR DOCKER-COMPOSE CON SSL
 # ============================================
-echo -e "${YELLOW}[4/8] Creando docker-compose.yml...${NC}"
+echo -e "${YELLOW}[4/9] Creando docker-compose.yml...${NC}"
 
-cat > docker-compose.yml << DOCKERCOMPOSE
-version: '3'
+if [ "$USE_SSL" = true ]; then
+    # Docker Compose con SSL optimizado para máximo rendimiento
+    cat > docker-compose.yml << DOCKERCOMPOSE
+version: '3.8'
 
 services:
     nginx:
-        image: nginx:alpine
+        build:
+            context: ./docker/nginx
+            dockerfile: Dockerfile
         container_name: apidian_nginx
         working_dir: /var/www/html
         ports:
             - "${HTTP_PORT}:80"
+            - "${HTTPS_PORT}:443"
         volumes:
             - ./:/var/www/html:cached
-            - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+            - ./docker/nginx/sites-available:/etc/nginx/conf.d
+            - /etc/letsencrypt:/etc/letsencrypt:ro
+            - /var/www/certbot:/var/www/certbot
+            - nginx_cache:/var/cache/nginx
         depends_on:
             - php
         networks:
             - api_dian
+        restart: unless-stopped
+        deploy:
+            resources:
+                limits:
+                    memory: 256M
+                reservations:
+                    memory: 128M
+
+    certbot:
+        image: certbot/certbot
+        container_name: apidian_certbot
+        volumes:
+            - /etc/letsencrypt:/etc/letsencrypt
+            - /var/www/certbot:/var/www/certbot
+        command: certonly --webroot --webroot-path=/var/www/certbot --email ${SSL_EMAIL} --agree-tos --no-eff-email -d ${DOMAIN}
+        depends_on:
+            - nginx
+
     php:
         build:
             context: ./docker/php
@@ -230,15 +538,30 @@ services:
         working_dir: /var/www/html
         volumes:
             - ./:/var/www/html:cached
+            - php_sessions:/tmp
         depends_on:
             - mariadb
+            - redis
         networks:
             - api_dian
         environment:
             - PHP_OPCACHE_ENABLE=1
             - PHP_OPCACHE_VALIDATE_TIMESTAMPS=0
+            - PHP_OPCACHE_REVALIDATE_FREQ=0
+            - PHP_OPCACHE_MAX_ACCELERATED_FILES=20000
+            - PHP_OPCACHE_MEMORY_CONSUMPTION=512
+            - PHP_REALPATH_CACHE_SIZE=4096K
+            - PHP_REALPATH_CACHE_TTL=600
+        restart: unless-stopped
+        deploy:
+            resources:
+                limits:
+                    memory: 1024M
+                reservations:
+                    memory: 512M
+
     mariadb:
-        image: mariadb:10.5
+        image: mariadb:10.3
         container_name: apidian_mariadb
         environment:
             - MYSQL_USER=apidian
@@ -249,28 +572,230 @@ services:
             - "${MYSQL_PORT}:3306"
         volumes:
             - apidian_mysql_data:/var/lib/mysql
+            - ./docker/mariadb/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
         networks:
             - api_dian
-        command: --innodb-buffer-pool-size=256M --innodb-log-file-size=64M --innodb-flush-log-at-trx-commit=2
+        command: >
+            --innodb-buffer-pool-size=512M
+            --innodb-log-file-size=128M
+            --innodb-flush-log-at-trx-commit=2
+            --innodb-flush-method=O_DIRECT
+            --character-set-server=utf8
+            --collation-server=utf8_spanish_ci
+            --max-connections=200
+            --query-cache-type=1
+            --query-cache-size=64M
+            --tmp-table-size=64M
+            --max-heap-table-size=64M
+            --thread-cache-size=50
+            --table-open-cache=4000
+            --key-buffer-size=256M
+        restart: unless-stopped
+        deploy:
+            resources:
+                limits:
+                    memory: 1024M
+                reservations:
+                    memory: 512M
+
+    redis:
+        image: redis:7-alpine
+        container_name: apidian_redis
+        command: >
+            redis-server
+            --appendonly yes
+            --maxmemory 256mb
+            --maxmemory-policy allkeys-lru
+            --save 60 1000
+            --tcp-keepalive 60
+            --timeout 300
+        volumes:
+            - redis_data:/data
+        networks:
+            - api_dian
+        restart: unless-stopped
+        deploy:
+            resources:
+                limits:
+                    memory: 256M
+                reservations:
+                    memory: 128M
 
 networks:
     api_dian:
-        driver: "bridge"
+        driver: bridge
+        driver_opts:
+            com.docker.network.driver.mtu: 1500
 
 volumes:
     apidian_mysql_data:
-        driver: "local"
+        driver: local
+    redis_data:
+        driver: local
+    nginx_cache:
+        driver: local
+    php_sessions:
+        driver: local
 DOCKERCOMPOSE
+else
+    # Docker Compose sin SSL optimizado para máximo rendimiento
+    cat > docker-compose.yml << DOCKERCOMPOSE
+version: '3.8'
+
+services:
+    nginx:
+        build:
+            context: ./docker/nginx
+            dockerfile: Dockerfile
+        container_name: apidian_nginx
+        working_dir: /var/www/html
+        ports:
+            - "${HTTP_PORT}:80"
+        volumes:
+            - ./:/var/www/html:cached
+            - ./docker/nginx/sites-available:/etc/nginx/conf.d
+            - nginx_cache:/var/cache/nginx
+        depends_on:
+            - php
+        networks:
+            - api_dian
+        restart: unless-stopped
+        deploy:
+            resources:
+                limits:
+                    memory: 256M
+                reservations:
+                    memory: 128M
+
+    php:
+        build:
+            context: ./docker/php
+            dockerfile: Dockerfile
+        container_name: apidian_php
+        working_dir: /var/www/html
+        volumes:
+            - ./:/var/www/html:cached
+            - php_sessions:/tmp
+        depends_on:
+            - mariadb
+            - redis
+        networks:
+            - api_dian
+        environment:
+            - PHP_OPCACHE_ENABLE=1
+            - PHP_OPCACHE_VALIDATE_TIMESTAMPS=0
+            - PHP_OPCACHE_REVALIDATE_FREQ=0
+            - PHP_OPCACHE_MAX_ACCELERATED_FILES=20000
+            - PHP_OPCACHE_MEMORY_CONSUMPTION=512
+            - PHP_REALPATH_CACHE_SIZE=4096K
+            - PHP_REALPATH_CACHE_TTL=600
+        restart: unless-stopped
+        deploy:
+            resources:
+                limits:
+                    memory: 1024M
+                reservations:
+                    memory: 512M
+
+    mariadb:
+        image: mariadb:10.3
+        container_name: apidian_mariadb
+        environment:
+            - MYSQL_USER=apidian
+            - MYSQL_PASSWORD=${DB_PASSWORD}
+            - MYSQL_DATABASE=apidian
+            - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+        ports:
+            - "${MYSQL_PORT}:3306"
+        volumes:
+            - apidian_mysql_data:/var/lib/mysql
+            - ./docker/mariadb/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+        networks:
+            - api_dian
+        command: >
+            --innodb-buffer-pool-size=512M
+            --innodb-log-file-size=128M
+            --innodb-flush-log-at-trx-commit=2
+            --innodb-flush-method=O_DIRECT
+            --character-set-server=utf8
+            --collation-server=utf8_spanish_ci
+            --max-connections=200
+            --query-cache-type=1
+            --query-cache-size=64M
+            --tmp-table-size=64M
+            --max-heap-table-size=64M
+            --thread-cache-size=50
+            --table-open-cache=4000
+            --key-buffer-size=256M
+        restart: unless-stopped
+        deploy:
+            resources:
+                limits:
+                    memory: 1024M
+                reservations:
+                    memory: 512M
+
+    redis:
+        image: redis:7-alpine
+        container_name: apidian_redis
+        command: >
+            redis-server
+            --appendonly yes
+            --maxmemory 256mb
+            --maxmemory-policy allkeys-lru
+            --save 60 1000
+            --tcp-keepalive 60
+            --timeout 300
+        volumes:
+            - redis_data:/data
+        networks:
+            - api_dian
+        restart: unless-stopped
+        deploy:
+            resources:
+                limits:
+                    memory: 256M
+                reservations:
+                    memory: 128M
+
+networks:
+    api_dian:
+        driver: bridge
+        driver_opts:
+            com.docker.network.driver.mtu: 1500
+
+volumes:
+    apidian_mysql_data:
+        driver: local
+    redis_data:
+        driver: local
+    nginx_cache:
+        driver: local
+    php_sessions:
+        driver: local
+DOCKERCOMPOSE
+fi
 
 echo -e "${GREEN}✓ docker-compose.yml creado${NC}"
 
 # ============================================
 # 5. CREAR ARCHIVO .ENV
 # ============================================
-echo -e "${YELLOW}[5/8] Creando archivo .env...${NC}"
+echo -e "${YELLOW}[5/9] Creando archivo .env...${NC}"
 
 APP_KEY="base64:$(openssl rand -base64 32)"
 SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
+
+# Determinar URL base
+if [ "$USE_SSL" = true ]; then
+    APP_URL="https://${DOMAIN}"
+else
+    if [ "$DOMAIN" = "localhost" ]; then
+        APP_URL="http://${SERVER_IP}:${HTTP_PORT}"
+    else
+        APP_URL="http://${DOMAIN}:${HTTP_PORT}"
+    fi
+fi
 
 cat > .env << ENVFILE
 APP_NAME="APIDIAN"
@@ -279,8 +804,8 @@ APP_ENV=production
 APP_KEY=${APP_KEY}
 APP_DEBUG=false
 APP_PORT=${HTTP_PORT}
-APP_URL=http://${SERVER_IP}
-FORCE_HTTPS=false
+APP_URL=${APP_URL}
+FORCE_HTTPS=$([ "$USE_SSL" = true ] && echo "true" || echo "false")
 
 LOG_CHANNEL=stack
 
@@ -317,6 +842,11 @@ MYSQL_USER=apidian
 MYSQL_PASSWORD=${DB_PASSWORD}
 MYSQL_DATABASE=apidian
 MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+
+# SSL Configuration
+DOMAIN=${DOMAIN}
+SSL_EMAIL=${SSL_EMAIL}
+USE_SSL=${USE_SSL}
 ENVFILE
 
 echo -e "${GREEN}✓ .env creado${NC}"
@@ -324,10 +854,10 @@ echo -e "${GREEN}✓ .env creado${NC}"
 # ============================================
 # 6. CONSTRUIR E INICIAR CONTENEDORES
 # ============================================
-echo -e "${YELLOW}[6/8] Construyendo contenedores...${NC}"
+echo -e "${YELLOW}[6/9] Construyendo contenedores...${NC}"
 
-docker compose build --no-cache
-docker compose up -d
+docker compose build --no-cache --parallel
+docker compose up -d nginx php mariadb redis
 
 echo "Esperando a MariaDB (30s)..."
 sleep 30
@@ -335,9 +865,39 @@ sleep 30
 echo -e "${GREEN}✓ Contenedores iniciados${NC}"
 
 # ============================================
-# 7. INSTALAR DEPENDENCIAS Y CONFIGURAR
+# 7. CONFIGURAR SSL SI ES NECESARIO
 # ============================================
-echo -e "${YELLOW}[7/8] Instalando dependencias...${NC}"
+if [ "$USE_SSL" = true ]; then
+    echo -e "${YELLOW}[7/9] Configurando SSL con Let's Encrypt...${NC}"
+    
+    # Crear directorio para certbot
+    mkdir -p /var/www/certbot
+    
+    # Obtener certificado SSL
+    echo "Obteniendo certificado SSL para ${DOMAIN}..."
+    docker compose run --rm certbot certonly --webroot --webroot-path=/var/www/certbot --email ${SSL_EMAIL} --agree-tos --no-eff-email -d ${DOMAIN}
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓ Certificado SSL obtenido${NC}"
+        
+        # Reiniciar nginx para cargar SSL
+        docker compose restart nginx
+        
+        # Configurar renovación automática
+        echo "0 12 * * * /usr/bin/docker compose -f ${SCRIPT_DIR}/docker-compose.yml run --rm certbot renew --quiet && /usr/bin/docker compose -f ${SCRIPT_DIR}/docker-compose.yml restart nginx" | crontab -
+        echo -e "${GREEN}✓ Renovación automática configurada${NC}"
+    else
+        echo -e "${RED}Error obteniendo certificado SSL. Continuando sin SSL...${NC}"
+        USE_SSL=false
+    fi
+else
+    echo -e "${YELLOW}[7/9] Saltando configuración SSL...${NC}"
+fi
+
+# ============================================
+# 8. INSTALAR DEPENDENCIAS Y CONFIGURAR
+# ============================================
+echo -e "${YELLOW}[8/9] Instalando dependencias...${NC}"
 
 # Descomprimir storage.zip (según guía)
 if [ -f "storage.zip" ]; then
@@ -352,15 +912,32 @@ docker compose exec -T php composer install --no-dev --optimize-autoloader
 
 # Ejecutar urn_on.sh (según guía - CRÍTICO para firma DIAN)
 if [ -f "urn_on.sh" ]; then
+    echo "Ejecutando urn_on.sh (CRÍTICO para firma DIAN)..."
     chmod 700 urn_on.sh
     ./urn_on.sh
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓ urn_on.sh ejecutado correctamente${NC}"
+    else
+        echo -e "${YELLOW}⚠ urn_on.sh completado con advertencias${NC}"
+    fi
+else
+    echo -e "${RED}⚠ ADVERTENCIA: urn_on.sh no encontrado${NC}"
 fi
 
-# Configuración Laravel
+# Configuración Laravel (EXACTA según guía original)
 docker compose exec -T php php artisan key:generate --force
 docker compose exec -T php php artisan config:cache
 docker compose exec -T php php artisan cache:clear
 docker compose exec -T php php artisan storage:link
+
+# Verificar conexión a base de datos antes de migrar
+echo "Verificando conexión a base de datos..."
+docker compose exec -T php php artisan migrate:status > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo "Esperando conexión a base de datos (10s más)..."
+    sleep 10
+fi
+
 docker compose exec -T php php artisan migrate --seed --force
 
 # Permisos finales dentro del contenedor
@@ -376,9 +953,9 @@ docker compose exec -T php php artisan cache:clear
 echo -e "${GREEN}✓ Dependencias instaladas${NC}"
 
 # ============================================
-# 8. MOSTRAR INFORMACIÓN
+# 9. MOSTRAR INFORMACIÓN
 # ============================================
-echo -e "${YELLOW}[8/8] Finalizando...${NC}"
+echo -e "${YELLOW}[9/9] Finalizando...${NC}"
 
 echo ""
 echo -e "${GREEN}============================================${NC}"
@@ -386,7 +963,16 @@ echo -e "${GREEN}   ¡INSTALACIÓN COMPLETADA!${NC}"
 echo -e "${GREEN}============================================${NC}"
 echo ""
 echo -e "${BLUE}URL de la API:${NC}"
-echo "  http://${SERVER_IP}:${HTTP_PORT}"
+if [ "$USE_SSL" = true ]; then
+    echo "  https://${DOMAIN}"
+    echo "  http://${DOMAIN} (redirige a HTTPS)"
+else
+    if [ "$DOMAIN" = "localhost" ]; then
+        echo "  http://${SERVER_IP}:${HTTP_PORT}"
+    else
+        echo "  http://${DOMAIN}:${HTTP_PORT}"
+    fi
+fi
 echo ""
 echo -e "${BLUE}Base de datos:${NC}"
 echo "  Host: localhost:${MYSQL_PORT}"
@@ -395,11 +981,21 @@ echo "  Usuario: apidian"
 echo "  Password: ${DB_PASSWORD}"
 echo "  Root Password: ${DB_ROOT_PASSWORD}"
 echo ""
+if [ "$USE_SSL" = true ]; then
+    echo -e "${BLUE}SSL:${NC}"
+    echo "  Certificado: Let's Encrypt"
+    echo "  Dominio: ${DOMAIN}"
+    echo "  Renovación: Automática (cron)"
+    echo ""
+fi
 echo -e "${BLUE}Comandos útiles:${NC}"
 echo "  Ver logs:     docker compose logs -f"
 echo "  Reiniciar:    docker compose restart"
 echo "  Detener:      docker compose down"
 echo "  Estado:       docker compose ps"
+if [ "$USE_SSL" = true ]; then
+    echo "  Renovar SSL:  docker compose run --rm certbot renew"
+fi
 echo ""
 
 # Guardar credenciales
@@ -408,7 +1004,7 @@ cat > CREDENCIALES.txt << CREDS
 CREDENCIALES APIDIAN - $(date)
 ============================================
 
-URL API: http://${SERVER_IP}:${HTTP_PORT}
+URL API: $([ "$USE_SSL" = true ] && echo "https://${DOMAIN}" || ([ "$DOMAIN" = "localhost" ] && echo "http://${SERVER_IP}:${HTTP_PORT}" || echo "http://${DOMAIN}:${HTTP_PORT}"))
 
 Base de Datos:
   Host: localhost:${MYSQL_PORT} (externo) / mariadb:3306 (interno)
@@ -417,10 +1013,49 @@ Base de Datos:
   Password: ${DB_PASSWORD}
   Root Password: ${DB_ROOT_PASSWORD}
 
+$([ "$USE_SSL" = true ] && echo "SSL:
+  Certificado: Let's Encrypt
+  Dominio: ${DOMAIN}
+  Email: ${SSL_EMAIL}
+  Renovación: Automática")
+
 ============================================
 CREDS
 chmod 600 CREDENCIALES.txt
 
 echo -e "${YELLOW}Credenciales guardadas en: CREDENCIALES.txt${NC}"
 echo ""
-echo -e "${GREEN}¡Listo! Accede a http://${SERVER_IP}:${HTTP_PORT}${NC}"
+
+# Verificación final
+echo -e "${YELLOW}Verificando instalación...${NC}"
+sleep 5
+
+# Verificar que los contenedores estén corriendo
+CONTAINERS_RUNNING=$(docker compose ps --services --filter "status=running" | wc -l)
+TOTAL_CONTAINERS=$(docker compose ps --services | wc -l)
+
+if [ "$CONTAINERS_RUNNING" -eq "$TOTAL_CONTAINERS" ]; then
+    echo -e "${GREEN}✓ Todos los contenedores están corriendo${NC}"
+else
+    echo -e "${YELLOW}⚠ Algunos contenedores pueden estar iniciando...${NC}"
+fi
+
+# Verificar acceso HTTP
+if [ "$USE_SSL" = true ]; then
+    echo -e "${GREEN}¡Listo! Accede a https://${DOMAIN}${NC}"
+    echo -e "${BLUE}Nota: El certificado SSL puede tardar unos minutos en activarse${NC}"
+else
+    if [ "$DOMAIN" = "localhost" ]; then
+        echo -e "${GREEN}¡Listo! Accede a http://${SERVER_IP}:${HTTP_PORT}${NC}"
+    else
+        echo -e "${GREEN}¡Listo! Accede a http://${DOMAIN}:${HTTP_PORT}${NC}"
+    fi
+fi
+
+echo ""
+echo -e "${BLUE}Comandos de verificación:${NC}"
+echo "  docker compose ps                    # Ver estado de contenedores"
+echo "  docker compose logs -f php          # Ver logs de PHP"
+echo "  docker compose logs -f nginx        # Ver logs de Nginx"
+echo "  docker compose exec php php -v      # Verificar versión PHP"
+echo ""
