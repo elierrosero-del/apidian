@@ -483,296 +483,18 @@ fi
 echo -e "${GREEN}✓ Nginx configurado${NC}"
 
 # ============================================
-# 4. CREAR DOCKER-COMPOSE CON SSL
+# 4. USAR DOCKER-COMPOSE OPTIMIZADO EXISTENTE
 # ============================================
-echo -e "${YELLOW}[4/9] Creando docker-compose.yml...${NC}"
+echo -e "${YELLOW}[4/9] Verificando docker-compose.yml...${NC}"
 
-if [ "$USE_SSL" = true ]; then
-    # Docker Compose con SSL optimizado para máximo rendimiento
-    cat > docker-compose.yml << DOCKERCOMPOSE
-services:
-    nginx:
-        build:
-            context: ./docker/nginx
-            dockerfile: Dockerfile
-        container_name: apidian_nginx
-        working_dir: /var/www/html
-        ports:
-            - "${HTTP_PORT}:80"
-            - "${HTTPS_PORT}:443"
-        volumes:
-            - ./:/var/www/html:cached
-            - ./docker/nginx/sites-available:/etc/nginx/conf.d
-            - /etc/letsencrypt:/etc/letsencrypt:ro
-            - /var/www/certbot:/var/www/certbot
-            - nginx_cache:/var/cache/nginx
-        depends_on:
-            - php
-        networks:
-            - api_dian
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 256M
-                reservations:
-                    memory: 128M
-
-    certbot:
-        image: certbot/certbot
-        container_name: apidian_certbot
-        volumes:
-            - /etc/letsencrypt:/etc/letsencrypt
-            - /var/www/certbot:/var/www/certbot
-        command: certonly --webroot --webroot-path=/var/www/certbot --email ${SSL_EMAIL} --agree-tos --no-eff-email -d ${DOMAIN}
-        depends_on:
-            - nginx
-
-    php:
-        build:
-            context: ./docker/php
-            dockerfile: Dockerfile
-        container_name: apidian_php
-        working_dir: /var/www/html
-        volumes:
-            - ./:/var/www/html:cached
-            - php_sessions:/tmp
-        depends_on:
-            - mariadb
-            - redis
-        networks:
-            - api_dian
-        environment:
-            - PHP_OPCACHE_ENABLE=1
-            - PHP_OPCACHE_VALIDATE_TIMESTAMPS=0
-            - PHP_OPCACHE_REVALIDATE_FREQ=0
-            - PHP_OPCACHE_MAX_ACCELERATED_FILES=20000
-            - PHP_OPCACHE_MEMORY_CONSUMPTION=512
-            - PHP_REALPATH_CACHE_SIZE=4096K
-            - PHP_REALPATH_CACHE_TTL=600
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 1024M
-                reservations:
-                    memory: 512M
-
-    mariadb:
-        image: mariadb:10.3
-        container_name: apidian_mariadb
-        environment:
-            - MYSQL_USER=apidian
-            - MYSQL_PASSWORD=${DB_PASSWORD}
-            - MYSQL_DATABASE=apidian
-            - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
-        ports:
-            - "${MYSQL_PORT}:3306"
-        volumes:
-            - apidian_mysql_data:/var/lib/mysql
-            - ./docker/mariadb/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
-        networks:
-            - api_dian
-        command: >
-            --innodb-buffer-pool-size=512M
-            --innodb-log-file-size=128M
-            --innodb-flush-log-at-trx-commit=2
-            --innodb-flush-method=O_DIRECT
-            --character-set-server=utf8
-            --collation-server=utf8_spanish_ci
-            --max-connections=200
-            --query-cache-type=1
-            --query-cache-size=64M
-            --tmp-table-size=64M
-            --max-heap-table-size=64M
-            --thread-cache-size=50
-            --table-open-cache=4000
-            --key-buffer-size=256M
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 1024M
-                reservations:
-                    memory: 512M
-
-    redis:
-        image: redis:7-alpine
-        container_name: apidian_redis
-        command: >
-            redis-server
-            --appendonly yes
-            --maxmemory 256mb
-            --maxmemory-policy allkeys-lru
-            --save 60 1000
-            --tcp-keepalive 60
-            --timeout 300
-        volumes:
-            - redis_data:/data
-        networks:
-            - api_dian
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 256M
-                reservations:
-                    memory: 128M
-
-networks:
-    api_dian:
-        driver: bridge
-        driver_opts:
-            com.docker.network.driver.mtu: 1500
-
-volumes:
-    apidian_mysql_data:
-        driver: local
-    redis_data:
-        driver: local
-    nginx_cache:
-        driver: local
-    php_sessions:
-        driver: local
-DOCKERCOMPOSE
-else
-    # Docker Compose sin SSL optimizado para máximo rendimiento
-    cat > docker-compose.yml << DOCKERCOMPOSE
-services:
-    nginx:
-        build:
-            context: ./docker/nginx
-            dockerfile: Dockerfile
-        container_name: apidian_nginx
-        working_dir: /var/www/html
-        ports:
-            - "${HTTP_PORT}:80"
-        volumes:
-            - ./:/var/www/html:cached
-            - ./docker/nginx/sites-available:/etc/nginx/conf.d
-            - nginx_cache:/var/cache/nginx
-        depends_on:
-            - php
-        networks:
-            - api_dian
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 256M
-                reservations:
-                    memory: 128M
-
-    php:
-        build:
-            context: ./docker/php
-            dockerfile: Dockerfile
-        container_name: apidian_php
-        working_dir: /var/www/html
-        volumes:
-            - ./:/var/www/html:cached
-            - php_sessions:/tmp
-        depends_on:
-            - mariadb
-            - redis
-        networks:
-            - api_dian
-        environment:
-            - PHP_OPCACHE_ENABLE=1
-            - PHP_OPCACHE_VALIDATE_TIMESTAMPS=0
-            - PHP_OPCACHE_REVALIDATE_FREQ=0
-            - PHP_OPCACHE_MAX_ACCELERATED_FILES=20000
-            - PHP_OPCACHE_MEMORY_CONSUMPTION=512
-            - PHP_REALPATH_CACHE_SIZE=4096K
-            - PHP_REALPATH_CACHE_TTL=600
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 1024M
-                reservations:
-                    memory: 512M
-
-    mariadb:
-        image: mariadb:10.3
-        container_name: apidian_mariadb
-        environment:
-            - MYSQL_USER=apidian
-            - MYSQL_PASSWORD=${DB_PASSWORD}
-            - MYSQL_DATABASE=apidian
-            - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
-        ports:
-            - "${MYSQL_PORT}:3306"
-        volumes:
-            - apidian_mysql_data:/var/lib/mysql
-            - ./docker/mariadb/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
-        networks:
-            - api_dian
-        command: >
-            --innodb-buffer-pool-size=512M
-            --innodb-log-file-size=128M
-            --innodb-flush-log-at-trx-commit=2
-            --innodb-flush-method=O_DIRECT
-            --character-set-server=utf8
-            --collation-server=utf8_spanish_ci
-            --max-connections=200
-            --query-cache-type=1
-            --query-cache-size=64M
-            --tmp-table-size=64M
-            --max-heap-table-size=64M
-            --thread-cache-size=50
-            --table-open-cache=4000
-            --key-buffer-size=256M
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 1024M
-                reservations:
-                    memory: 512M
-
-    redis:
-        image: redis:7-alpine
-        container_name: apidian_redis
-        command: >
-            redis-server
-            --appendonly yes
-            --maxmemory 256mb
-            --maxmemory-policy allkeys-lru
-            --save 60 1000
-            --tcp-keepalive 60
-            --timeout 300
-        volumes:
-            - redis_data:/data
-        networks:
-            - api_dian
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 256M
-                reservations:
-                    memory: 128M
-
-networks:
-    api_dian:
-        driver: bridge
-        driver_opts:
-            com.docker.network.driver.mtu: 1500
-
-volumes:
-    apidian_mysql_data:
-        driver: local
-    redis_data:
-        driver: local
-    nginx_cache:
-        driver: local
-    php_sessions:
-        driver: local
-DOCKERCOMPOSE
+# El docker-compose.yml ya está optimizado en el repositorio
+# Solo necesitamos verificar que las variables de entorno estén configuradas
+if [ ! -f "docker-compose.yml" ]; then
+    echo -e "${RED}Error: docker-compose.yml no encontrado${NC}"
+    exit 1
 fi
 
-echo -e "${GREEN}✓ docker-compose.yml creado${NC}"
+echo -e "${GREEN}✓ docker-compose.yml verificado${NC}"
 
 # ============================================
 # 5. CREAR ARCHIVO .ENV
@@ -905,6 +627,12 @@ echo "Eliminando composer.lock incompatible..."
 rm -f composer.lock
 rm -rf vendor
 
+# Hacer backup del composer.json original y crear uno compatible
+if [ -f "composer.json" ]; then
+    cp composer.json composer.json.backup
+    echo "Backup del composer.json original creado"
+fi
+
 # Crear composer.json optimizado para PHP 7.3 (evitar vulnerabilidades)
 cat > composer.json << 'COMPOSERJSON'
 {
@@ -916,12 +644,23 @@ cat > composer.json << 'COMPOSERJSON'
     "require": {
         "php": "^7.3",
         "laravel/framework": "5.8.*",
-        "barryvdh/laravel-dompdf": "^0.8.0",
-        "dompdf/dompdf": "^0.8.0",
-        "maatwebsite/excel": "^3.1",
-        "stenfrank/ubl21dian": "^1.0"
+        "aws/aws-sdk-php": "^3.231",
+        "barryvdh/laravel-dompdf": "^0.8.4",
+        "doctrine/dbal": "2.5.1",
+        "fabpot/goutte": "^4.0",
+        "fideloper/proxy": "^4.0",
+        "laravel-lang/lang": "^9.0",
+        "laravel/tinker": "^1.0",
+        "mpdf/mpdf": "^8.0",
+        "mtownsend/request-xml": "^1.1",
+        "piotrooo/wsdl-creator": "^2.0",
+        "rguedes/pdfmerger": "^1.0",
+        "simplesoftwareio/simple-qrcode": "^2.0",
+        "spatie/flysystem-dropbox": "^1.0",
+        "spatie/laravel-backup": "^5.0.0"
     },
     "require-dev": {
+        "beyondcode/laravel-dump-server": "^1.2",
         "filp/whoops": "^2.0",
         "fzaninotto/faker": "^1.4",
         "mockery/mockery": "^1.0",
@@ -932,8 +671,9 @@ cat > composer.json << 'COMPOSERJSON'
         "optimize-autoloader": true,
         "preferred-install": "dist",
         "sort-packages": true,
-        "audit": {
-            "block-insecure": false
+        "platform-check": false,
+        "allow-plugins": {
+            "*": true
         }
     },
     "extra": {
@@ -975,10 +715,25 @@ COMPOSERJSON
 # Permisos (según guía: chmod -R 777 storage bootstrap/cache vendor/mpdf/mpdf)
 chmod -R 777 storage bootstrap/cache
 
-# Composer install (regenerará composer.lock para PHP 7.3)
-docker compose exec -T php composer config --no-plugins allow-plugins.* true
-docker compose exec -T php composer config audit.block-insecure false
-docker compose exec -T php composer install --no-dev --optimize-autoloader --ignore-platform-reqs
+# Composer install (compatible con PHP 7.3 y Composer 2.2)
+echo "Instalando dependencias con Composer..."
+
+# Limpiar configuraciones problemáticas existentes
+echo "Limpiando configuraciones de Composer..."
+rm -f ~/.composer/config.json 2>/dev/null || true
+docker compose exec -T php rm -f /root/.composer/config.json 2>/dev/null || true
+
+# Crear configuración limpia de Composer dentro del contenedor
+docker compose exec -T php mkdir -p /root/.composer
+docker compose exec -T php bash -c 'echo "{\"config\":{\"platform-check\":false,\"allow-plugins\":{\"*\":true}}}" > /root/.composer/config.json'
+
+# Verificar versión de Composer dentro del contenedor
+echo "Verificando versión de Composer..."
+docker compose exec -T php composer --version
+
+# Instalar dependencias sin comandos problemáticos
+echo "Ejecutando composer install..."
+docker compose exec -T php composer install --no-dev --optimize-autoloader --ignore-platform-reqs --no-interaction
 
 # Ejecutar urn_on.sh (según guía - CRÍTICO para firma DIAN)
 if [ -f "urn_on.sh" ]; then
