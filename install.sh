@@ -630,91 +630,15 @@ echo "Eliminando composer.lock incompatible..."
 rm -f composer.lock
 rm -rf vendor
 
-# Hacer backup del composer.json original y crear uno compatible
-if [ -f "composer.json" ]; then
-    cp composer.json composer.json.backup
-    echo "Backup del composer.json original creado"
-fi
+# IMPORTANTE: Usar el composer.json ORIGINAL del proyecto
+# NO crear uno nuevo porque el original tiene las dependencias correctas de DIAN
+echo "Usando composer.json original del proyecto..."
 
-# Crear composer.json optimizado para PHP 7.3 (evitar vulnerabilidades)
-cat > composer.json << 'COMPOSERJSON'
-{
-    "name": "apidian/apidian",
-    "description": "API DIAN Colombia - Facturación Electrónica",
-    "keywords": ["framework", "laravel", "dian", "facturacion"],
-    "license": "MIT",
-    "type": "project",
-    "require": {
-        "php": "^7.3",
-        "laravel/framework": "5.8.*",
-        "aws/aws-sdk-php": "^3.231",
-        "barryvdh/laravel-dompdf": "^0.8.4",
-        "doctrine/dbal": "2.5.1",
-        "fabpot/goutte": "^4.0",
-        "fideloper/proxy": "^4.0",
-        "laravel-lang/lang": "^9.0",
-        "laravel/tinker": "^1.0",
-        "mpdf/mpdf": "^8.0",
-        "mtownsend/request-xml": "^1.1",
-        "piotrooo/wsdl-creator": "^2.0",
-        "rguedes/pdfmerger": "^1.0",
-        "simplesoftwareio/simple-qrcode": "^2.0",
-        "spatie/flysystem-dropbox": "^1.0",
-        "spatie/laravel-backup": "^5.0.0",
-        "predis/predis": "^1.1"
-    },
-    "require-dev": {
-        "beyondcode/laravel-dump-server": "^1.2",
-        "filp/whoops": "^2.0",
-        "fzaninotto/faker": "^1.4",
-        "mockery/mockery": "^1.0",
-        "nunomaduro/collision": "^3.0",
-        "phpunit/phpunit": "^7.5"
-    },
-    "config": {
-        "optimize-autoloader": true,
-        "preferred-install": "dist",
-        "sort-packages": true,
-        "platform-check": false,
-        "allow-plugins": {
-            "*": true
-        }
-    },
-    "extra": {
-        "laravel": {
-            "dont-discover": []
-        }
-    },
-    "autoload": {
-        "psr-4": {
-            "App\\": "app/"
-        },
-        "classmap": [
-            "database/seeds",
-            "database/factories"
-        ]
-    },
-    "autoload-dev": {
-        "psr-4": {
-            "Tests\\": "tests/"
-        }
-    },
-    "minimum-stability": "dev",
-    "prefer-stable": true,
-    "scripts": {
-        "post-autoload-dump": [
-            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
-            "@php artisan package:discover --ansi"
-        ],
-        "post-root-package-install": [
-            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
-        ],
-        "post-create-project-cmd": [
-            "@php artisan key:generate --ansi"
-        ]
-    }
-}
-COMPOSERJSON
+# Solo agregar configuraciones necesarias para compatibilidad
+if [ -f "composer.json" ]; then
+    # Agregar configuración de allow-plugins si no existe
+    docker compose exec -T php composer config --no-plugins allow-plugins.* true 2>/dev/null || true
+fi
 
 # Permisos (según guía: chmod -R 777 storage bootstrap/cache vendor/mpdf/mpdf)
 chmod -R 777 storage bootstrap/cache
@@ -758,24 +682,35 @@ for i in 1 2 3; do
 done
 
 # Ejecutar urn_on.sh (según guía - CRÍTICO para firma DIAN)
-if [ -f "urn_on.sh" ]; then
-    echo "Ejecutando urn_on.sh (CRÍTICO para firma DIAN)..."
-    chmod 700 urn_on.sh
-    
-    # Verificar si existe el directorio de firma antes de ejecutar
+# IMPORTANTE: Debe ejecutarse DENTRO del contenedor PHP después de composer install
+echo "Ejecutando comandos de firma DIAN (urn_on.sh)..."
+
+# Ejecutar los comandos de urn_on.sh dentro del contenedor
+docker compose exec -T php bash -c '
     if [ -d "vendor/ubl21dian/torresoftware/src/XAdES/urn" ]; then
-        ./urn_on.sh
-        if [ $? -eq 0 ]; then
-            echo -e "${GREEN}✓ urn_on.sh ejecutado correctamente${NC}"
-        else
-            echo -e "${YELLOW}⚠ urn_on.sh completado con advertencias${NC}"
-        fi
+        echo "Copiando archivos de firma DIAN..."
+        cp resources/templates/xml/urn/*.* resources/templates/xml/ 2>/dev/null || true
+        cp vendor/ubl21dian/torresoftware/src/XAdES/urn/*.* vendor/ubl21dian/torresoftware/src/XAdES/ 2>/dev/null || true
+        cp resources/templates/xml/urn/Request.php vendor/laravel/framework/src/Illuminate/Http/Request.php 2>/dev/null || true
+        echo "Archivos de firma DIAN copiados correctamente"
     else
-        echo -e "${YELLOW}⚠ Directorio de firma DIAN no encontrado, saltando urn_on.sh${NC}"
-        echo -e "${YELLOW}  Esto es normal si las dependencias no incluyen el paquete de firma${NC}"
+        echo "Directorio de firma DIAN no encontrado, verificando alternativas..."
+        # Intentar con el paquete stenfrank si existe
+        if [ -d "vendor/stenfrank/ubl21dian/src/XAdES/urn" ]; then
+            cp resources/templates/xml/urn/*.* resources/templates/xml/ 2>/dev/null || true
+            cp vendor/stenfrank/ubl21dian/src/XAdES/urn/*.* vendor/stenfrank/ubl21dian/src/XAdES/ 2>/dev/null || true
+            cp resources/templates/xml/urn/Request.php vendor/laravel/framework/src/Illuminate/Http/Request.php 2>/dev/null || true
+            echo "Archivos de firma DIAN copiados (stenfrank)"
+        else
+            echo "ADVERTENCIA: No se encontró el paquete de firma DIAN"
+        fi
     fi
+'
+
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✓ Comandos de firma DIAN ejecutados${NC}"
 else
-    echo -e "${YELLOW}⚠ ADVERTENCIA: urn_on.sh no encontrado${NC}"
+    echo -e "${YELLOW}⚠ Comandos de firma DIAN completados con advertencias${NC}"
 fi
 
 # Configuración Laravel (EXACTA según guía original)
