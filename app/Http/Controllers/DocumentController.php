@@ -32,7 +32,14 @@ class DocumentController extends Controller
 
     public function records(Request $request)
     {
-        $records = Document::all();
+        $query = Document::query();
+        
+        // Filtrar por empresa (identification_number)
+        if ($request->has('company') && $request->company) {
+            $query->where('identification_number', $request->company);
+        }
+        
+        $records = $query->orderBy('created_at', 'desc')->get();
         return new DocumentCollection($records);
     }
 
