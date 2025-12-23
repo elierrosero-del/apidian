@@ -259,222 +259,93 @@ echo -e "${YELLOW}[3/9] Creando configuración Nginx...${NC}"
 mkdir -p docker/nginx/sites-available
 
 if [ "$USE_SSL" = true ]; then
-    # Configuración con SSL optimizada para máximo rendimiento
+    # Configuración con SSL (sin limit_req_zone - ya está en nginx.conf del Dockerfile)
     cat > docker/nginx/sites-available/default.conf << NGINXCONF
-# ============================================
-# NGINX SSL - OPTIMIZADO PARA MÁXIMO RENDIMIENTO
-# ============================================
-
-# Rate limiting
-limit_req_zone \$binary_remote_addr zone=login:10m rate=1r/s;
-limit_req_zone \$binary_remote_addr zone=api:10m rate=20r/s;
-
-# Upstream PHP-FPM optimizado
-upstream php-fpm {
-    server php:9000;
-    keepalive 32;
-}
-
 server {
     listen 80;
     server_name ${DOMAIN};
     
-    # Health check endpoint
     location /health {
-        access_log off;
         return 200 "healthy\n";
         add_header Content-Type text/plain;
     }
     
-    # Redirigir HTTP a HTTPS
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
     }
     
     location / {
-        return 301 https://\$server_name\$request_uri;
+        return 301 https://\$host\$request_uri;
     }
 }
 
 server {
-    listen 443 ssl http2;
+    listen 443 ssl;
     server_name ${DOMAIN};
     
     root /var/www/html/public;
     index index.php index.html;
     
-    # SSL Configuration optimizada
     ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
-    
-    # SSL Security optimizada
     ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384;
-    ssl_prefer_server_ciphers off;
-    ssl_session_cache shared:SSL:50m;
-    ssl_session_timeout 1d;
-    ssl_session_tickets off;
     
-    # OCSP stapling
-    ssl_stapling on;
-    ssl_stapling_verify on;
+    client_max_body_size 100M;
     
-    # Security Headers optimizados
-    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
-    add_header X-Frame-Options DENY always;
-    add_header X-Content-Type-Options nosniff always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    
-    # Health check endpoint
     location /health {
-        access_log off;
         return 200 "healthy\n";
         add_header Content-Type text/plain;
-    }
-    
-    # Cache de archivos estáticos optimizado
-    location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2|ttf|svg)\$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-        add_header Vary Accept-Encoding;
-        access_log off;
-    }
-    
-    # API endpoints con rate limiting
-    location /api/ {
-        limit_req zone=api burst=50 nodelay;
-        try_files \$uri \$uri/ /index.php?\$query_string;
     }
     
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;
     }
     
-    # PHP-FPM optimizado para máximo rendimiento
     location ~ \.php\$ {
         try_files \$uri =404;
-        fastcgi_split_path_info ^(.+\.php)(/.+)\$;
-        fastcgi_pass php-fpm;
+        fastcgi_pass php:9000;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
         include fastcgi_params;
-        
-        # Timeouts optimizados
-        fastcgi_connect_timeout 300s;
-        fastcgi_send_timeout 300s;
-        fastcgi_read_timeout 300s;
-        
-        # Buffers optimizados para máximo rendimiento
-        fastcgi_buffer_size 256k;
-        fastcgi_buffers 8 256k;
-        fastcgi_busy_buffers_size 512k;
-        fastcgi_temp_file_write_size 512k;
-        
-        # Cache de FastCGI
-        fastcgi_cache_bypass \$skip_cache;
-        fastcgi_no_cache \$skip_cache;
-        
-        # Headers optimizados
-        fastcgi_param HTTP_PROXY "";
-        fastcgi_param HTTPS on;
-        fastcgi_param SERVER_PORT 443;
+        fastcgi_read_timeout 300;
     }
     
-    # Denegar acceso a archivos sensibles
-    location ~ /\.(?!well-known).* {
+    location ~ /\.ht {
         deny all;
-        access_log off;
-        log_not_found off;
-    }
-    
-    location ~ ^/(\.user.ini|\.htaccess|\.htpasswd|\.sh|\.svn|\.git) {
-        return 404;
     }
 }
 NGINXCONF
 else
-    # Configuración sin SSL optimizada para máximo rendimiento
+    # Configuración sin SSL (sin limit_req_zone - ya está en nginx.conf del Dockerfile)
     cat > docker/nginx/sites-available/default.conf << NGINXCONF
-# ============================================
-# NGINX HTTP - OPTIMIZADO PARA MÁXIMO RENDIMIENTO
-# ============================================
-
-# Rate limiting
-limit_req_zone \$binary_remote_addr zone=login:10m rate=1r/s;
-limit_req_zone \$binary_remote_addr zone=api:10m rate=20r/s;
-
-# Upstream PHP-FPM optimizado
-upstream php-fpm {
-    server php:9000;
-    keepalive 32;
-}
-
 server {
     listen 80;
     server_name ${DOMAIN};
     root /var/www/html/public;
     index index.php index.html;
     
-    # Health check endpoint
+    client_max_body_size 100M;
+    
     location /health {
-        access_log off;
         return 200 "healthy\n";
         add_header Content-Type text/plain;
-    }
-    
-    # Cache de archivos estáticos optimizado
-    location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2|ttf|svg)\$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-        add_header Vary Accept-Encoding;
-        access_log off;
-    }
-    
-    # API endpoints con rate limiting
-    location /api/ {
-        limit_req zone=api burst=50 nodelay;
-        try_files \$uri \$uri/ /index.php?\$query_string;
     }
     
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;
     }
     
-    # PHP-FPM optimizado para máximo rendimiento
     location ~ \.php\$ {
         try_files \$uri =404;
-        fastcgi_split_path_info ^(.+\.php)(/.+)\$;
-        fastcgi_pass php-fpm;
+        fastcgi_pass php:9000;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
         include fastcgi_params;
-        
-        # Timeouts optimizados
-        fastcgi_connect_timeout 300s;
-        fastcgi_send_timeout 300s;
-        fastcgi_read_timeout 300s;
-        
-        # Buffers optimizados para máximo rendimiento
-        fastcgi_buffer_size 256k;
-        fastcgi_buffers 8 256k;
-        fastcgi_busy_buffers_size 512k;
-        fastcgi_temp_file_write_size 512k;
-        
-        # Cache de FastCGI
-        fastcgi_cache_bypass \$skip_cache;
-        fastcgi_no_cache \$skip_cache;
+        fastcgi_read_timeout 300;
     }
     
-    # Denegar acceso a archivos sensibles
     location ~ /\.ht {
         deny all;
-        access_log off;
-        log_not_found off;
-    }
-    
-    location ~ ^/(\.user.ini|\.htaccess|\.htpasswd|\.sh|\.svn|\.git) {
-        return 404;
     }
 }
 NGINXCONF
