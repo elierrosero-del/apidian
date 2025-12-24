@@ -46,17 +46,40 @@ class DocumentController extends Controller
 
     public function downloadxml($xml)
     {
-        //$invoice =  Document::find($id);
-        return response()->download(storage_path($xml));
+        // Buscar el documento por nombre de XML
+        $document = Document::where('xml', $xml)->first();
+        
+        if (!$document) {
+            abort(404, 'Documento no encontrado');
+        }
+        
+        $nit = $document->identification_number;
+        $filePath = storage_path("app/public/{$nit}/{$xml}");
+        
+        if (!file_exists($filePath)) {
+            abort(404, 'Archivo XML no encontrado');
+        }
+        
+        return response()->download($filePath);
     }
 
     public function downloadpdf($pdf)
     {
-
-        return response()->download(storage_path("app/{$pdf}"));
-       // return false;
-        //$invoice =  Document::find($id);
-       // return response()->download(storage_path("app\FES-SETP{$invoice->number}.xml"));
+        // Buscar el documento por nombre de PDF
+        $document = Document::where('pdf', $pdf)->first();
+        
+        if (!$document) {
+            abort(404, 'Documento no encontrado');
+        }
+        
+        $nit = $document->identification_number;
+        $filePath = storage_path("app/public/{$nit}/{$pdf}");
+        
+        if (!file_exists($filePath)) {
+            abort(404, 'Archivo PDF no encontrado');
+        }
+        
+        return response()->download($filePath);
     }
    
 
