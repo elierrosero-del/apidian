@@ -28,12 +28,15 @@ class DocumentCollection extends ResourceCollection
             // Determinar estado del documento
             // state_document_id: 1 = Procesado OK, 0 = Pendiente/Error
             $stateId = $row->state_document_id ?? 0;
-            $stateName = $stateId == 1 ? 'Procesado' : 'Pendiente';
-            $stateClass = $stateId == 1 ? 'success' : 'warning';
+            $stateName = 'Pendiente';
+            $stateClass = 'warning';
             
             // Verificar si tiene CUFE (indica que fue aceptado por DIAN)
-            if ($row->cufe) {
-                $stateName = 'Aceptado DIAN';
+            if ($row->cufe && strlen($row->cufe) > 10) {
+                $stateName = 'Procesado correctamente';
+                $stateClass = 'success';
+            } elseif ($stateId == 1) {
+                $stateName = 'Procesado';
                 $stateClass = 'success';
             }
             
