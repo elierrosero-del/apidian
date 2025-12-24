@@ -39,8 +39,23 @@ class DocumentController extends Controller
             $query->where('identification_number', $request->company);
         }
         
-        $records = $query->orderBy('created_at', 'desc')->get();
-        return new DocumentCollection($records);
+        // Paginación
+        $perPage = $request->get('per_page', 15);
+        $page = $request->get('page', 1);
+        
+        $total = $query->count();
+        $records = $query->orderBy('created_at', 'desc')
+                        ->skip(($page - 1) * $perPage)
+                        ->take($perPage)
+                        ->get();
+        
+        return response()->json([
+            'data' => (new DocumentCollection($records))->toArray($request),
+            'total' => $total,
+            'page' => (int)$page,
+            'per_page' => (int)$perPage,
+            'last_page' => ceil($total / $perPage)
+        ]);
     }
 
 

@@ -60,21 +60,28 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="DIAN" width="70" align="center">
+        <el-table-column label="DIAN" width="80" align="center">
           <template slot-scope="scope">
-            <a 
+            <el-button 
               v-if="scope.row.cufe" 
-              :href="getDianUrl(scope.row.cufe)"
-              target="_blank"
-              class="dian-link"
-              title="Ver en DIAN"
-            >
-              <i class="fa fa-external-link-alt"></i>
-            </a>
-            <span v-else class="text-muted">-</span>
+              type="warning"
+              size="mini"
+              @click="openDian(scope.row.cufe)"
+            >Ver</el-button>
+            <span v-else>-</span>
           </template>
         </el-table-column>
       </el-table>
+      
+      <div class="pagination-container">
+        <el-pagination
+          @current-change="handlePageChange"
+          :current-page="currentPage"
+          :page-size="pageSize"
+          :total="totalRecords"
+          layout="prev, pager, next, total"
+        ></el-pagination>
+      </div>
     </div>
   </div>
 </template>
@@ -86,7 +93,10 @@ export default {
       resource: "documents",
       tableData: [],
       companyFilter: null,
-      companyName: ""
+      companyName: "",
+      currentPage: 1,
+      pageSize: 15,
+      totalRecords: 0
     };
   },
   created() {
@@ -97,19 +107,24 @@ export default {
   },
   methods: {
     getRecords() {
-      let url = `/${this.resource}/records`;
+      let url = `/${this.resource}/records?page=${this.currentPage}&per_page=${this.pageSize}`;
       if (this.companyFilter) {
-        url += `?company=${this.companyFilter}`;
+        url += `&company=${this.companyFilter}`;
       }
       
       this.$http
         .get(url)
         .then(response => {
           this.tableData = response.data.data;
+          this.totalRecords = response.data.total || response.data.data.length;
         })
         .catch(error => {
           console.error("Error:", error);
         });
+    },
+    handlePageChange(page) {
+      this.currentPage = page;
+      this.getRecords();
     },
     formatDate(date) {
       if (!date) return '-';
@@ -119,9 +134,8 @@ export default {
       if (!num) return '0';
       return Number(num).toLocaleString('es-CO');
     },
-    getDianUrl(cufe) {
-      // URL oficial de la DIAN para consultar documentos electrónicos
-      return `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=${cufe}`;
+    openDian(cufe) {
+      window.open(`https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=${cufe}`, '_blank');
     }
   }
 };
@@ -203,5 +217,11 @@ export default {
 }
 .dian-link i {
   font-size: 12px;
+}
+
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
 }
 </style>
