@@ -50,17 +50,31 @@ class DocumentController extends Controller
         $document = Document::where('xml', $xml)->first();
         
         if (!$document) {
-            abort(404, 'Documento no encontrado');
+            return response()->json(['error' => 'Documento no encontrado en BD', 'xml' => $xml], 404);
         }
         
         $nit = $document->identification_number;
-        $filePath = storage_path("app/public/{$nit}/{$xml}");
         
-        if (!file_exists($filePath)) {
-            abort(404, 'Archivo XML no encontrado');
+        // Intentar varias rutas posibles
+        $possiblePaths = [
+            storage_path("app/public/{$nit}/{$xml}"),
+            storage_path("app/{$nit}/{$xml}"),
+            storage_path("app/public/{$xml}"),
+            storage_path("{$xml}"),
+        ];
+        
+        foreach ($possiblePaths as $filePath) {
+            if (file_exists($filePath)) {
+                return response()->download($filePath);
+            }
         }
         
-        return response()->download($filePath);
+        return response()->json([
+            'error' => 'Archivo XML no encontrado',
+            'xml' => $xml,
+            'nit' => $nit,
+            'paths_checked' => $possiblePaths
+        ], 404);
     }
 
     public function downloadpdf($pdf)
@@ -69,17 +83,31 @@ class DocumentController extends Controller
         $document = Document::where('pdf', $pdf)->first();
         
         if (!$document) {
-            abort(404, 'Documento no encontrado');
+            return response()->json(['error' => 'Documento no encontrado en BD', 'pdf' => $pdf], 404);
         }
         
         $nit = $document->identification_number;
-        $filePath = storage_path("app/public/{$nit}/{$pdf}");
         
-        if (!file_exists($filePath)) {
-            abort(404, 'Archivo PDF no encontrado');
+        // Intentar varias rutas posibles
+        $possiblePaths = [
+            storage_path("app/public/{$nit}/{$pdf}"),
+            storage_path("app/{$nit}/{$pdf}"),
+            storage_path("app/public/{$pdf}"),
+            storage_path("{$pdf}"),
+        ];
+        
+        foreach ($possiblePaths as $filePath) {
+            if (file_exists($filePath)) {
+                return response()->download($filePath);
+            }
         }
         
-        return response()->download($filePath);
+        return response()->json([
+            'error' => 'Archivo PDF no encontrado',
+            'pdf' => $pdf,
+            'nit' => $nit,
+            'paths_checked' => $possiblePaths
+        ], 404);
     }
    
 
