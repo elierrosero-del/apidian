@@ -19,11 +19,12 @@ class CompaniesCollection extends ResourceCollection
             return [
                 'key' => $key + 1,
                 'id' => $row->id,
-                'identification_number' => $row->company['identification_number'],
+                'identification_number' => $row->company['identification_number'] ?? null,
                 'name' => $row->name,
                 'email' => $row->email,
                 'created_at' => $row->created_at->format('Y-m-d H:i:s'),
-                'token' => $row->api_token
+                'token' => $row->api_token,
+                'type_environment_id' => $row->company['type_environment_id'] ?? 2,
             ];
         });
     }
