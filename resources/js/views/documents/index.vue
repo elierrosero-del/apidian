@@ -1,73 +1,73 @@
 <template>
   <div class="card">
-    <div class="card-header">
+    <div class="card-header d-flex justify-content-between align-items-center">
       <span v-if="companyFilter">Documentos de: {{ companyName }}</span>
       <span v-else>Lista de Documentos</span>
-      <a v-if="companyFilter" href="/documents" class="btn btn-sm btn-light float-right">
+      <a v-if="companyFilter" href="/documents" class="btn btn-sm btn-outline-secondary">
         <i class="fa fa-arrow-left"></i> Ver Todos
       </a>
     </div>
 
     <div class="card-body">
-      <el-table :data="tableData" style="width: 100%">
-        <el-table-column prop="key" label="#" width="60"></el-table-column>
-        <el-table-column label="Numero" width="130">
+      <el-table :data="tableData" style="width: 100%" stripe>
+        <el-table-column prop="key" label="#" width="50"></el-table-column>
+        <el-table-column label="Tipo" width="120">
           <template slot-scope="scope">
-            {{ scope.row.prefix }}{{ scope.row.number }}
+            <span class="doc-type">
+              <i :class="'fa fa-' + scope.row.type_document_icon"></i>
+              {{ scope.row.type_document_name }}
+            </span>
           </template>
         </el-table-column>
-        <el-table-column prop="client" label="Cliente" width="160"></el-table-column>
-        <el-table-column prop="date" label="Fecha" width="110"></el-table-column>
-        <el-table-column prop="total" label="Total" width="100"></el-table-column>
-        <el-table-column label="Estado" width="130">
+        <el-table-column label="Número" width="140">
           <template slot-scope="scope">
-            <span 
-              :class="'badge badge-' + scope.row.state_class"
-              style="padding: 5px 10px; border-radius: 4px;"
-            >
+            <strong>{{ scope.row.prefix }}{{ scope.row.number }}</strong>
+          </template>
+        </el-table-column>
+        <el-table-column prop="client" label="Cliente" min-width="150"></el-table-column>
+        <el-table-column label="Fecha" width="100">
+          <template slot-scope="scope">
+            {{ formatDate(scope.row.date) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="Total" width="100" align="right">
+          <template slot-scope="scope">
+            ${{ formatNumber(scope.row.total) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="Estado" width="110" align="center">
+          <template slot-scope="scope">
+            <span :class="'status-badge status-' + scope.row.state_class">
               {{ scope.row.state_name }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column fixed="right" label="XML" width="70">
+        <el-table-column label="Archivos" width="100" align="center">
           <template slot-scope="scope">
-            <a 
-              v-if="scope.row.xml && scope.row.xml !== 'INITIAL_NUMBER.XML'" 
-              :href="`/${resource}/downloadxml/${scope.row.xml}`" 
-              target="_blank" 
-              class="btn btn-xs btn-info"
-              title="Descargar XML"
-            >
-              <i class="fa fa-download"></i>
-            </a>
-            <span v-else class="text-muted">-</span>
+            <div class="file-buttons">
+              <a 
+                v-if="scope.row.xml && scope.row.xml !== 'INITIAL_NUMBER.XML'" 
+                :href="`/${resource}/downloadxml/${scope.row.xml}`" 
+                class="file-btn xml"
+                title="Descargar XML"
+              >XML</a>
+              <a 
+                v-if="scope.row.pdf && scope.row.pdf !== 'INITIAL_NUMBER.PDF'" 
+                :href="`/${resource}/downloadpdf/${scope.row.pdf}`" 
+                class="file-btn pdf"
+                title="Descargar PDF"
+              >PDF</a>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column fixed="right" label="PDF" width="70">
-          <template slot-scope="scope">
-            <a 
-              v-if="scope.row.pdf && scope.row.pdf !== 'INITIAL_NUMBER.PDF'" 
-              :href="`/${resource}/downloadpdf/${scope.row.pdf}`" 
-              target="_blank" 
-              class="btn btn-xs btn-info"
-              title="Descargar PDF"
-            >
-              <i class="fa fa-download"></i>
-            </a>
-            <span v-else class="text-muted">-</span>
-          </template>
-        </el-table-column>
-        <el-table-column fixed="right" label="CUFE" width="100">
+        <el-table-column label="CUFE" width="70" align="center">
           <template slot-scope="scope">
             <el-tooltip 
               v-if="scope.row.cufe" 
               :content="scope.row.cufe" 
-              placement="top"
-              effect="dark"
+              placement="left"
             >
-              <span class="cufe-badge" style="cursor: pointer;">
-                <i class="fa fa-check-circle text-success"></i> Ver
-              </span>
+              <i class="fa fa-check-circle cufe-ok"></i>
             </el-tooltip>
             <span v-else class="text-muted">-</span>
           </template>
@@ -88,7 +88,6 @@ export default {
     };
   },
   created() {
-    // Obtener parámetro de empresa de la URL
     const urlParams = new URLSearchParams(window.location.search);
     this.companyFilter = urlParams.get('company');
     this.companyName = urlParams.get('name') || this.companyFilter;
@@ -109,25 +108,75 @@ export default {
         .catch(error => {
           console.error("Error:", error);
         });
+    },
+    formatDate(date) {
+      if (!date) return '-';
+      return date.split(' ')[0];
+    },
+    formatNumber(num) {
+      if (!num) return '0';
+      return Number(num).toLocaleString('es-CO');
     }
   }
 };
 </script>
 
 <style scoped>
-.badge-success {
-  background-color: #22c55e;
-  color: white;
-}
-.badge-warning {
-  background-color: #f59e0b;
-  color: white;
-}
-.badge-danger {
-  background-color: #ef4444;
-  color: white;
-}
-.cufe-badge {
+.doc-type {
   font-size: 12px;
+  color: #64748b;
+}
+.doc-type i {
+  margin-right: 5px;
+  color: #94a3b8;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.status-success {
+  background: #dcfce7;
+  color: #166534;
+}
+.status-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+.status-danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.file-buttons {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+}
+.file-btn {
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.file-btn.xml {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.file-btn.pdf {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.file-btn:hover {
+  opacity: 0.8;
+}
+
+.cufe-ok {
+  color: #22c55e;
+  font-size: 16px;
 }
 </style>

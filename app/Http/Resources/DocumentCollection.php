@@ -26,18 +26,64 @@ class DocumentCollection extends ResourceCollection
             }
             
             // Determinar estado del documento
-            // state_document_id: 1 = Procesado OK, 0 = Pendiente/Error
             $stateId = $row->state_document_id ?? 0;
             $stateName = 'Pendiente';
             $stateClass = 'warning';
             
-            // Verificar si tiene CUFE (indica que fue aceptado por DIAN)
             if ($row->cufe && strlen($row->cufe) > 10) {
-                $stateName = 'Procesado correctamente';
+                $stateName = 'Procesado';
                 $stateClass = 'success';
             } elseif ($stateId == 1) {
                 $stateName = 'Procesado';
                 $stateClass = 'success';
+            }
+            
+            // Tipo de documento
+            $typeDocId = $row->type_document_id;
+            $typeDocName = 'Documento';
+            $typeDocIcon = 'file';
+            
+            switch ($typeDocId) {
+                case 1:
+                    $typeDocName = 'Factura';
+                    $typeDocIcon = 'file-invoice';
+                    break;
+                case 2:
+                    $typeDocName = 'Factura Exportación';
+                    $typeDocIcon = 'file-export';
+                    break;
+                case 3:
+                    $typeDocName = 'Factura Contingencia';
+                    $typeDocIcon = 'file-alt';
+                    break;
+                case 4:
+                    $typeDocName = 'Nota Crédito';
+                    $typeDocIcon = 'file-minus';
+                    break;
+                case 5:
+                    $typeDocName = 'Nota Débito';
+                    $typeDocIcon = 'file-plus';
+                    break;
+                case 6:
+                    $typeDocName = 'Nómina';
+                    $typeDocIcon = 'users';
+                    break;
+                case 7:
+                    $typeDocName = 'Nómina Ajuste';
+                    $typeDocIcon = 'user-edit';
+                    break;
+                case 11:
+                    $typeDocName = 'Doc. Soporte';
+                    $typeDocIcon = 'file-contract';
+                    break;
+                case 12:
+                    $typeDocName = 'Nota Ajuste DS';
+                    $typeDocIcon = 'file-signature';
+                    break;
+                case 13:
+                    $typeDocName = 'NC Doc. Soporte';
+                    $typeDocIcon = 'file-minus';
+                    break;
             }
             
             return [
@@ -55,15 +101,15 @@ class DocumentCollection extends ResourceCollection
                 'total' => $row->total,
                 'xml' => $row->xml,
                 'pdf' => $row->pdf,
-                'url_xml' => '',
-                'url_pdf' => '',
                 'company_name' => $companyName,
                 'identification_number' => $row->identification_number,
                 'state_id' => $stateId,
                 'state_name' => $stateName,
                 'state_class' => $stateClass,
                 'cufe' => $row->cufe,
-                'type_document_id' => $row->type_document_id,
+                'type_document_id' => $typeDocId,
+                'type_document_name' => $typeDocName,
+                'type_document_icon' => $typeDocIcon,
             ];
         });
     }
