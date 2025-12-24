@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Document;
+use App\Company;
 use App\Http\Resources\DocumentCollection;
 
 
@@ -49,8 +50,79 @@ class DocumentController extends Controller
                         ->take($perPage)
                         ->get();
         
+        // Procesar documentos con información adicional
+        $data = [];
+        foreach ($records as $key => $row) {
+            // Obtener ambiente de la empresa
+            $environment = 2; // Por defecto habilitación
+            if ($row->identification_number) {
+                $company = Company::where('identification_number', $row->identification_number)->first();
+                if ($company && $company->type_environment_id) {
+                    $environment = $company->type_environment_id;
+                }
+            }
+            
+            // Determinar estado real del documento
+            $stateId = $row->state_document_id ?? 0;
+            $hasCufe = $row->cufe && strlen($row->cufe) > 10;
+            
+            $stateName = 'Pendiente';
+            $stateClass = 'warning';
+            $canResend = true;
+            
+            if ($stateId == 1 && $hasCufe) {
+                $stateName = 'Procesado';
+                $stateClass = 'success';
+                $canResend = false;
+            } elseif ($stateId == 1 && !$hasCufe) {
+                $stateName = 'Enviado';
+                $stateClass = 'info';
+                $canResend = true;
+            } elseif ($stateId == 0 || !$hasCufe) {
+                $stateName = 'Pendiente';
+                $stateClass = 'warning';
+                $canResend = true;
+            }
+            
+            // Tipo de documento
+            $typeDocId = $row->type_document_id;
+            $typeDocName = 'Documento';
+            switch ($typeDocId) {
+                case 1: $typeDocName = 'Factura'; break;
+                case 2: $typeDocName = 'Factura Exp.'; break;
+                case 3: $typeDocName = 'Contingencia'; break;
+                case 4: $typeDocName = 'Nota Crédito'; break;
+                case 5: $typeDocName = 'Nota Débito'; break;
+                case 6: $typeDocName = 'Nómina'; break;
+                case 7: $typeDocName = 'Nómina Ajuste'; break;
+                case 11: $typeDocName = 'Doc. Soporte'; break;
+                case 12: $typeDocName = 'Nota Ajuste DS'; break;
+                case 13: $typeDocName = 'NC Doc. Soporte'; break;
+            }
+            
+            $data[] = [
+                'key' => $key + 1,
+                'id' => $row->id,
+                'number' => $row->number,
+                'prefix' => $row->prefix,
+                'client' => $row->client->name ?? 'N/A',
+                'date' => $row->date_issue,
+                'total' => $row->total,
+                'xml' => $row->xml,
+                'pdf' => $row->pdf,
+                'cufe' => $row->cufe,
+                'state_id' => $stateId,
+                'state_name' => $stateName,
+                'state_class' => $stateClass,
+                'can_resend' => $canResend,
+                'type_document_name' => $typeDocName,
+                'environment' => $environment, // 1=Producción, 2=Habilitación
+                'identification_number' => $row->identification_number,
+            ];
+        }
+        
         return response()->json([
-            'data' => (new DocumentCollection($records))->toArray($request),
+            'data' => $data,
             'total' => $total,
             'page' => (int)$page,
             'per_page' => (int)$perPage,
