@@ -1,433 +1,300 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="card" style="margin-top: -20px;">
-    <div class="card-header doc-header">
-        <div class="header-top">
-            <span class="header-title">Lista de Documentos</span>
+<div class="doc-container">
+    <!-- Barra de filtros -->
+    <div class="filter-bar">
+        <select id="filter-type" onchange="applyFilters()">
+            <option value="">Todos los tipos</option>
+            <option value="1">Facturas</option>
+            <option value="4">Notas Crédito</option>
+            <option value="5">Notas Débito</option>
+            <option value="11">Doc. Soporte</option>
+        </select>
+        <div class="search-wrapper">
+            <i class="fa fa-search"></i>
+            <input type="text" id="filter-search" placeholder="Buscar por número o cliente..." onkeyup="debounceFilter()">
         </div>
-        
-        <!-- Filtros en línea -->
-        <div class="filters-inline">
-            <div class="filter-item">
-                <select id="filter-type" onchange="applyFilters()">
-                    <option value="">Todos los tipos</option>
-                    <option value="1">Factura</option>
-                    <option value="4">Nota Crédito</option>
-                    <option value="5">Nota Débito</option>
-                    <option value="11">Doc. Soporte</option>
-                    <option value="6">Nómina</option>
-                </select>
-            </div>
-            <div class="filter-item search-box">
-                <i class="fa fa-search"></i>
-                <input type="text" id="filter-client" placeholder="Buscar cliente..." onkeyup="debounceFilter()">
-            </div>
-            <div class="filter-item search-box">
-                <i class="fa fa-hashtag"></i>
-                <input type="text" id="filter-number" placeholder="Número..." onkeyup="debounceFilter()">
-            </div>
-            <button class="btn-clear" onclick="clearFilters()" title="Limpiar filtros">
-                <i class="fa fa-times"></i>
-            </button>
-        </div>
+        <span class="doc-count" id="doc-count">0 documentos</span>
     </div>
-    
-    <div class="card-body" style="padding: 0;">
-        <div class="table-responsive">
-            <table class="table doc-table" id="documents-table">
-                <thead>
-                    <tr>
-                        <th width="40">#</th>
-                        <th width="90">Tipo</th>
-                        <th width="130">Número</th>
-                        <th>Cliente</th>
-                        <th width="90">Fecha</th>
-                        <th width="100" class="text-right">Total</th>
-                        <th width="90">Estado</th>
-                        <th width="80" class="text-center">Archivos</th>
-                        <th width="90" class="text-center">DIAN</th>
-                    </tr>
-                </thead>
-                <tbody id="documents-body">
-                    <tr><td colspan="9" class="text-center py-4">Cargando...</td></tr>
-                </tbody>
-            </table>
-        </div>
-        
-        <!-- Paginación -->
-        <div id="pagination-controls" class="pagination-bar" style="display:none;">
-            <span class="page-info" id="page-info"></span>
-            <div class="page-buttons">
-                <button class="page-btn" id="btn-prev" onclick="changePage(-1)">
-                    <i class="fa fa-chevron-left"></i>
-                </button>
-                <span class="page-current" id="page-current">1</span>
-                <button class="page-btn" id="btn-next" onclick="changePage(1)">
-                    <i class="fa fa-chevron-right"></i>
-                </button>
-            </div>
-        </div>
+
+    <!-- Tabla -->
+    <table class="doc-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Tipo</th>
+                <th>Número</th>
+                <th>Cliente</th>
+                <th>Fecha</th>
+                <th class="text-right">Total</th>
+                <th>Estado</th>
+                <th class="text-center">Archivos</th>
+                <th class="text-center">DIAN</th>
+            </tr>
+        </thead>
+        <tbody id="documents-body">
+            <tr><td colspan="9" class="loading">Cargando documentos...</td></tr>
+        </tbody>
+    </table>
+
+    <!-- Paginación -->
+    <div class="pagination" id="pagination" style="display:none;">
+        <button id="btn-prev" onclick="changePage(-1)"><i class="fa fa-chevron-left"></i></button>
+        <span id="page-num">1</span>
+        <button id="btn-next" onclick="changePage(1)"><i class="fa fa-chevron-right"></i></button>
     </div>
 </div>
 
 <style>
-/* Header */
-.doc-header {
-    background: #1e293b;
-    padding: 12px 16px !important;
-    border: none;
-}
-.header-top {
-    margin-bottom: 12px;
-}
-.header-title {
-    color: white;
-    font-weight: 600;
-    font-size: 15px;
-}
+.doc-container { margin: -15px -15px 0; }
 
-/* Filtros inline */
-.filters-inline {
+/* Barra de filtros */
+.filter-bar {
     display: flex;
-    gap: 10px;
     align-items: center;
-    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
 }
-.filter-item select {
-    background: #334155;
-    border: 1px solid #475569;
-    color: white;
+.filter-bar select {
     padding: 8px 12px;
+    border: 1px solid #d1d5db;
     border-radius: 6px;
     font-size: 13px;
-    min-width: 140px;
+    color: #374151;
+    background: #fff;
     cursor: pointer;
 }
-.filter-item select:focus {
-    outline: none;
-    border-color: #f97316;
-}
-.filter-item select option {
-    background: #1e293b;
-}
-.search-box {
+.filter-bar select:focus { outline: none; border-color: #f97316; }
+.search-wrapper {
+    flex: 1;
+    max-width: 300px;
     position: relative;
-    display: flex;
-    align-items: center;
 }
-.search-box i {
+.search-wrapper i {
     position: absolute;
-    left: 10px;
-    color: #94a3b8;
-    font-size: 12px;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+    font-size: 13px;
 }
-.search-box input {
-    background: #334155;
-    border: 1px solid #475569;
-    color: white;
-    padding: 8px 12px 8px 32px;
+.search-wrapper input {
+    width: 100%;
+    padding: 8px 12px 8px 36px;
+    border: 1px solid #d1d5db;
     border-radius: 6px;
     font-size: 13px;
-    width: 160px;
 }
-.search-box input::placeholder {
-    color: #94a3b8;
-}
-.search-box input:focus {
-    outline: none;
-    border-color: #f97316;
-}
-.btn-clear {
-    background: transparent;
-    border: 1px solid #475569;
-    color: #94a3b8;
-    width: 36px;
-    height: 36px;
-    border-radius: 6px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.btn-clear:hover {
-    background: #ef4444;
-    border-color: #ef4444;
-    color: white;
+.search-wrapper input:focus { outline: none; border-color: #f97316; }
+.search-wrapper input::placeholder { color: #9ca3af; }
+.doc-count {
+    margin-left: auto;
+    font-size: 13px;
+    color: #6b7280;
 }
 
 /* Tabla */
 .doc-table {
-    margin: 0;
+    width: 100%;
+    border-collapse: collapse;
 }
-.doc-table thead {
-    background: #f8fafc;
-}
-.doc-table thead th {
+.doc-table th {
     padding: 10px 12px;
+    text-align: left;
     font-size: 11px;
     font-weight: 600;
-    color: #64748b;
+    color: #6b7280;
     text-transform: uppercase;
-    border-bottom: 2px solid #e2e8f0;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
 }
-.doc-table tbody td {
-    padding: 10px 12px;
+.doc-table td {
+    padding: 12px;
     font-size: 13px;
-    vertical-align: middle;
-    border-bottom: 1px solid #f1f5f9;
+    color: #374151;
+    border-bottom: 1px solid #f3f4f6;
 }
-.doc-table tbody tr:hover {
-    background: #f8fafc;
-}
+.doc-table tbody tr:hover { background: #f9fafb; }
+.doc-table .loading { text-align: center; color: #9ca3af; padding: 40px; }
+.doc-table .empty { text-align: center; color: #9ca3af; padding: 40px; }
 
-/* Estados */
-.status-badge {
+/* Número documento */
+.doc-num { font-weight: 600; color: #111827; }
+
+/* Estado */
+.badge {
     display: inline-block;
     padding: 4px 10px;
-    border-radius: 20px;
+    border-radius: 12px;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 500;
 }
-.status-success { background: #dcfce7; color: #166534; }
-.status-warning { background: #fef3c7; color: #92400e; }
-.status-info { background: #dbeafe; color: #1e40af; }
+.badge-success { background: #d1fae5; color: #065f46; }
+.badge-warning { background: #fef3c7; color: #92400e; }
+.badge-info { background: #dbeafe; color: #1e40af; }
 
 /* Archivos */
-.file-btn {
+.file-link {
     display: inline-block;
     padding: 4px 8px;
+    margin: 1px;
     border-radius: 4px;
     font-size: 10px;
-    font-weight: 700;
+    font-weight: 600;
     text-decoration: none;
-    margin: 1px;
 }
-.file-btn.xml { background: #dbeafe; color: #1e40af; }
-.file-btn.pdf { background: #fce7f3; color: #be185d; }
-.file-btn:hover { opacity: 0.8; text-decoration: none; color: inherit; }
+.file-xml { background: #eff6ff; color: #1d4ed8; }
+.file-pdf { background: #fef2f2; color: #dc2626; }
+.file-link:hover { opacity: 0.8; }
 
 /* DIAN */
-.btn-dian {
-    background: linear-gradient(135deg, #f97316, #ea580c);
-    color: white;
-    border: none;
+.btn-ver {
+    display: inline-block;
     padding: 5px 12px;
+    background: #f97316;
+    color: #fff;
     border-radius: 4px;
     font-size: 11px;
     font-weight: 600;
     text-decoration: none;
+}
+.btn-ver:hover { background: #ea580c; color: #fff; }
+.env-tag {
     display: inline-block;
-}
-.btn-dian:hover { 
-    background: linear-gradient(135deg, #ea580c, #c2410c);
-    color: white; 
-    text-decoration: none; 
-}
-.env-badge {
-    font-size: 9px;
-    padding: 2px 6px;
-    border-radius: 3px;
     margin-left: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 9px;
     font-weight: 600;
 }
 .env-hab { background: #fef3c7; color: #92400e; }
-.env-prod { background: #dcfce7; color: #166534; }
+.env-prod { background: #d1fae5; color: #065f46; }
 
 /* Paginación */
-.pagination-bar {
+.pagination {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
-    background: #f8fafc;
-    border-top: 1px solid #e2e8f0;
-}
-.page-info {
-    color: #64748b;
-    font-size: 13px;
-}
-.page-buttons {
-    display: flex;
+    justify-content: center;
     align-items: center;
     gap: 8px;
+    padding: 16px;
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
 }
-.page-btn {
-    background: white;
-    border: 1px solid #e2e8f0;
-    color: #64748b;
+.pagination button {
     width: 32px;
     height: 32px;
+    border: 1px solid #d1d5db;
+    background: #fff;
     border-radius: 6px;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    color: #374151;
 }
-.page-btn:hover:not(:disabled) {
+.pagination button:hover:not(:disabled) { background: #f97316; color: #fff; border-color: #f97316; }
+.pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+.pagination span {
+    padding: 6px 14px;
     background: #f97316;
-    border-color: #f97316;
-    color: white;
-}
-.page-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-.page-current {
-    background: #f97316;
-    color: white;
-    padding: 6px 12px;
+    color: #fff;
     border-radius: 6px;
-    font-weight: 600;
     font-size: 13px;
+    font-weight: 600;
 }
 
 /* Reenvío */
 .btn-resend {
+    margin-left: 4px;
+    padding: 2px 6px;
     background: #3b82f6;
-    color: white;
+    color: #fff;
     border: none;
-    padding: 3px 6px;
     border-radius: 4px;
     font-size: 10px;
     cursor: pointer;
-    margin-left: 4px;
 }
 .btn-resend:hover { background: #2563eb; }
-
-/* Número documento */
-.doc-number {
-    font-weight: 600;
-    color: #1e293b;
-}
 </style>
 
 <script>
-let currentPage = 1;
-let totalPages = 1;
-let totalRecords = 0;
-const perPage = 15;
-let filterTimeout = null;
+let page = 1, pages = 1, total = 0, timeout = null;
+const DIAN = { 1: 'https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=', 2: 'https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=' };
 
-const DIAN_URLS = {
-    1: 'https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=',
-    2: 'https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey='
-};
+document.addEventListener('DOMContentLoaded', load);
 
-document.addEventListener('DOMContentLoaded', loadDocuments);
+function debounceFilter() { clearTimeout(timeout); timeout = setTimeout(() => { page = 1; load(); }, 400); }
+function applyFilters() { page = 1; load(); }
 
-function debounceFilter() {
-    clearTimeout(filterTimeout);
-    filterTimeout = setTimeout(applyFilters, 400);
-}
-
-function applyFilters() {
-    currentPage = 1;
-    loadDocuments();
-}
-
-function clearFilters() {
-    document.getElementById('filter-type').value = '';
-    document.getElementById('filter-client').value = '';
-    document.getElementById('filter-number').value = '';
-    currentPage = 1;
-    loadDocuments();
-}
-
-function loadDocuments() {
-    let url = '/documents/records?page=' + currentPage + '&per_page=' + perPage;
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    const company = urlParams.get('company');
+function load() {
+    let url = '/documents/records?page=' + page + '&per_page=15';
+    const company = new URLSearchParams(location.search).get('company');
     if (company) url += '&company=' + company;
     
     const type = document.getElementById('filter-type').value;
-    const client = document.getElementById('filter-client').value;
-    const number = document.getElementById('filter-number').value;
-    
+    const search = document.getElementById('filter-search').value;
     if (type) url += '&type=' + type;
-    if (client) url += '&client=' + encodeURIComponent(client);
-    if (number) url += '&number=' + encodeURIComponent(number);
+    if (search) url += '&search=' + encodeURIComponent(search);
     
-    fetch(url)
-        .then(r => r.json())
-        .then(data => {
-            renderTable(data.data);
-            totalRecords = data.total || 0;
-            totalPages = Math.ceil(totalRecords / perPage) || 1;
-            updatePagination();
-        })
-        .catch(e => {
-            document.getElementById('documents-body').innerHTML = 
-                '<tr><td colspan="9" class="text-center text-danger py-4">Error al cargar</td></tr>';
-        });
+    fetch(url).then(r => r.json()).then(d => {
+        total = d.total || 0;
+        pages = Math.ceil(total / 15) || 1;
+        document.getElementById('doc-count').textContent = total + ' documento' + (total !== 1 ? 's' : '');
+        render(d.data);
+        updatePag();
+    }).catch(() => {
+        document.getElementById('documents-body').innerHTML = '<tr><td colspan="9" class="empty">Error al cargar</td></tr>';
+    });
 }
 
-function renderTable(docs) {
+function render(docs) {
     const tbody = document.getElementById('documents-body');
-    
     if (!docs || !docs.length) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4" style="color:#94a3b8;">No se encontraron documentos</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="empty">No se encontraron documentos</td></tr>';
         return;
     }
-    
-    tbody.innerHTML = docs.map((doc, i) => {
-        const num = (currentPage - 1) * perPage + i + 1;
-        
-        let status = `<span class="status-badge status-${doc.state_class}">${doc.state_name}</span>`;
-        if (doc.can_resend) status += `<button class="btn-resend" onclick="resendDocument(${doc.id})"><i class="fa fa-redo"></i></button>`;
+    tbody.innerHTML = docs.map((d, i) => {
+        const n = (page - 1) * 15 + i + 1;
+        let st = `<span class="badge badge-${d.state_class}">${d.state_name}</span>`;
+        if (d.can_resend) st += `<button class="btn-resend" onclick="resend(${d.id})"><i class="fa fa-redo"></i></button>`;
         
         let files = '';
-        if (doc.xml && doc.xml !== 'INITIAL_NUMBER.XML') files += `<a href="/documents/downloadxml/${doc.xml}" class="file-btn xml">XML</a>`;
-        if (doc.pdf && doc.pdf !== 'INITIAL_NUMBER.PDF') files += `<a href="/documents/downloadpdf/${doc.pdf}" class="file-btn pdf">PDF</a>`;
+        if (d.xml && d.xml !== 'INITIAL_NUMBER.XML') files += `<a href="/documents/downloadxml/${d.xml}" class="file-link file-xml">XML</a>`;
+        if (d.pdf && d.pdf !== 'INITIAL_NUMBER.PDF') files += `<a href="/documents/downloadpdf/${d.pdf}" class="file-link file-pdf">PDF</a>`;
         
-        let dian = '-';
-        if (doc.cufe && doc.cufe.length > 10) {
-            const url = DIAN_URLS[doc.environment] || DIAN_URLS[2];
-            const env = doc.environment == 1 ? ['PROD','env-prod'] : ['HAB','env-hab'];
-            dian = `<a href="${url}${doc.cufe}" target="_blank" class="btn-dian">Ver</a><span class="env-badge ${env[1]}">${env[0]}</span>`;
+        let dian = '<span style="color:#9ca3af">-</span>';
+        if (d.cufe && d.cufe.length > 10) {
+            const env = d.environment == 1 ? ['PROD', 'env-prod'] : ['HAB', 'env-hab'];
+            dian = `<a href="${DIAN[d.environment] || DIAN[2]}${d.cufe}" target="_blank" class="btn-ver">Ver</a><span class="env-tag ${env[1]}">${env[0]}</span>`;
         }
         
         return `<tr>
-            <td>${num}</td>
-            <td>${doc.type_document_name || 'Doc'}</td>
-            <td class="doc-number">${(doc.prefix||'') + (doc.number||'')}</td>
-            <td>${doc.client || 'N/A'}</td>
-            <td>${doc.date ? doc.date.split(' ')[0] : '-'}</td>
-            <td class="text-right">$${doc.total ? Number(doc.total).toLocaleString('es-CO') : '0'}</td>
-            <td>${status}</td>
+            <td>${n}</td>
+            <td>${d.type_document_name || '-'}</td>
+            <td class="doc-num">${(d.prefix || '') + (d.number || '')}</td>
+            <td>${d.client || '-'}</td>
+            <td>${d.date ? d.date.split(' ')[0] : '-'}</td>
+            <td class="text-right">$${d.total ? Number(d.total).toLocaleString('es-CO') : '0'}</td>
+            <td>${st}</td>
             <td class="text-center">${files || '-'}</td>
-            <td class="text-center" style="white-space:nowrap">${dian}</td>
+            <td class="text-center">${dian}</td>
         </tr>`;
     }).join('');
 }
 
-function updatePagination() {
-    const bar = document.getElementById('pagination-controls');
-    const info = document.getElementById('page-info');
-    const curr = document.getElementById('page-current');
-    const prev = document.getElementById('btn-prev');
-    const next = document.getElementById('btn-next');
-    
-    bar.style.display = 'flex';
-    info.textContent = `${totalRecords} documento${totalRecords !== 1 ? 's' : ''}`;
-    curr.textContent = currentPage;
-    prev.disabled = currentPage <= 1;
-    next.disabled = currentPage >= totalPages;
+function updatePag() {
+    const pag = document.getElementById('pagination');
+    pag.style.display = total > 15 ? 'flex' : 'none';
+    document.getElementById('page-num').textContent = page;
+    document.getElementById('btn-prev').disabled = page <= 1;
+    document.getElementById('btn-next').disabled = page >= pages;
 }
 
-function changePage(dir) {
-    const newPage = currentPage + dir;
-    if (newPage >= 1 && newPage <= totalPages) {
-        currentPage = newPage;
-        loadDocuments();
-    }
+function changePage(d) {
+    const np = page + d;
+    if (np >= 1 && np <= pages) { page = np; load(); }
 }
 
-function resendDocument(id) {
-    if (confirm('¿Reenviar documento a la DIAN?')) {
-        alert('Función pendiente de implementar.');
-    }
-}
+function resend(id) { if (confirm('¿Reenviar a DIAN?')) alert('Función pendiente.'); }
 </script>
 @endsection

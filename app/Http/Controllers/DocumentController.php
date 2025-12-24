@@ -45,17 +45,15 @@ class DocumentController extends Controller
             $query->where('type_document_id', $request->type);
         }
         
-        // Filtrar por cliente (búsqueda en relación)
-        if ($request->has('client') && $request->client) {
-            $clientSearch = $request->client;
-            $query->whereHas('client', function($q) use ($clientSearch) {
-                $q->where('name', 'like', '%' . $clientSearch . '%');
+        // Búsqueda unificada (número o cliente)
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('number', 'like', '%' . $search . '%')
+                  ->orWhereHas('client', function($qc) use ($search) {
+                      $qc->where('name', 'like', '%' . $search . '%');
+                  });
             });
-        }
-        
-        // Filtrar por número de documento
-        if ($request->has('number') && $request->number) {
-            $query->where('number', 'like', '%' . $request->number . '%');
         }
         
         // Paginación
