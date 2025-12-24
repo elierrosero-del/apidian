@@ -46,13 +46,12 @@ class DocumentController extends Controller
         }
         
         // Búsqueda unificada (número o cliente)
+        // Nota: client es un campo JSON, no una relación
         if ($request->has('search') && $request->search) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('number', 'like', '%' . $search . '%')
-                  ->orWhereHas('client', function($qc) use ($search) {
-                      $qc->where('name', 'like', '%' . $search . '%');
-                  });
+                  ->orWhere('client->name', 'like', '%' . $search . '%');
             });
         }
         

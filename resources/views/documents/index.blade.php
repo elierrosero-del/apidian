@@ -12,6 +12,8 @@
                     <option value="4">Notas Crédito</option>
                     <option value="5">Notas Débito</option>
                     <option value="11">Doc. Soporte</option>
+                    <option value="6">Nómina</option>
+                    <option value="7">Nómina Ajuste</option>
                 </select>
                 <div class="input-group input-group-sm" style="width: 250px;">
                     <div class="input-group-prepend">
