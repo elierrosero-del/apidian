@@ -311,7 +311,47 @@ function changePage(dir) {
 
 function resend(id) {
     if (confirm('¿Reenviar documento a la DIAN?')) {
-        alert('Función pendiente de implementar.');
+        // Mostrar loading
+        var btn = event.target.closest('button');
+        var originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+        
+        fetch('/documents/resend/' + id, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+        .then(function(response) {
+            return response.json().then(function(data) {
+                return { status: response.status, data: data };
+            });
+        })
+        .then(function(result) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+            
+            if (result.data.success) {
+                alert('✅ ' + result.data.message + (result.data.cufe ? '\n\nCUFE/CUDS: ' + result.data.cufe : ''));
+                load(); // Recargar la lista
+            } else {
+                var errorMsg = result.data.message;
+                if (result.data.errors && result.data.errors.length > 0) {
+                    errorMsg += '\n\nErrores DIAN:\n' + result.data.errors.join('\n');
+                }
+                if (result.data.dian_status) {
+                    errorMsg += '\n\nEstado: ' + result.data.dian_status;
+                }
+                alert('❌ ' + errorMsg);
+            }
+        })
+        .catch(function(error) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+            alert('❌ Error de conexión: ' + error.message);
+        });
     }
 }
 </script>

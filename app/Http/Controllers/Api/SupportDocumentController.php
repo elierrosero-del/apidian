@@ -281,11 +281,15 @@ class SupportDocumentController extends Controller
         // Create XML
         $invoice = $this->createXML(compact('user', 'company', 'seller', 'taxTotals', 'withHoldingTaxTotal', 'resolution', 'paymentForm', 'typeDocument', 'invoiceLines', 'allowanceCharges', 'legalMonetaryTotals', 'date', 'time', 'notes', 'typeoperation', 'orderreference', 'prepaidpayment', 'delivery', 'deliveryparty', 'request', 'idcurrency', 'calculationrate', 'calculationratedate', 'healthfields'));
 
-        // Register Seller
-        if(env('APPLY_SEND_CUSTOMER_CREDENTIALS', TRUE))
-            $this->registerCustomer($seller, $request->sendmail);
-        else
-            $this->registerCustomer($seller, $request->send_customer_credentials);
+        // Register Seller (wrapped in try-catch to prevent email errors from blocking DIAN submission)
+        try {
+            if(env('APPLY_SEND_CUSTOMER_CREDENTIALS', TRUE))
+                $this->registerCustomer($seller, $request->sendmail);
+            else
+                $this->registerCustomer($seller, $request->send_customer_credentials);
+        } catch (\Exception $e) {
+            \Log::warning('Error registering customer for support document: ' . $e->getMessage());
+        }
 
         // Signature XML
         $signInvoice = new SignInvoice($company->certificate->path, $company->certificate->password);
@@ -728,8 +732,12 @@ class SupportDocumentController extends Controller
         // Create XML
         $invoice = $this->createXML(compact('user', 'company', 'seller', 'taxTotals', 'withHoldingTaxTotal', 'resolution', 'paymentForm', 'typeDocument', 'invoiceLines', 'allowanceCharges', 'legalMonetaryTotals', 'date', 'time', 'notes', 'typeoperation', 'orderreference', 'prepaidpayment', 'delivery', 'deliveryparty', 'request', 'idcurrency', 'calculationrate', 'calculationratedate', 'healthfields'));
 
-        // Register Seller
-        $this->registerCustomer($seller, $request->sendmail);
+        // Register Seller (wrapped in try-catch to prevent email errors from blocking DIAN submission)
+        try {
+            $this->registerCustomer($seller, $request->sendmail);
+        } catch (\Exception $e) {
+            \Log::warning('Error registering customer for support document credit note: ' . $e->getMessage());
+        }
 
         // Signature XML
         $signInvoice = new SignInvoice($company->certificate->path, $company->certificate->password);

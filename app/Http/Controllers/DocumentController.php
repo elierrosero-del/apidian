@@ -5,7 +5,11 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Document;
 use App\Company;
+use App\User;
 use App\Http\Resources\DocumentCollection;
+use ubl21dian\XAdES\SignInvoice;
+use ubl21dian\Templates\SOAP\SendBillSync;
+use Carbon\Carbon;
 
 
 
@@ -242,14 +246,187 @@ class DocumentController extends Controller
             'variants_tried' => $pdfVariants
         ], 404);
     }
-   
 
-
-
-
- 
-
-    
-
-
+    /**
+     * Reenviar documento a la DIAN
+     */
+    public function resend($id)
+    {
+        try {
+            $document = Document::findOrFail($id);
+            
+            // Verificar que el documento no esté ya procesado
+            if ($document->state_document_id == 1 && $document->cufe && strlen($document->cufe) > 10) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Este documento ya fue procesado exitosamente por la DIAN.'
+                ], 400);
+            }
+            
+            // Obtener la empresa
+            $company = Company::where('identification_number', $document->identification_number)->first();
+            if (!$company) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se encontró la empresa asociada al documento.'
+                ], 404);
+            }
+            
+            // Obtener el usuario de la empresa
+            $user = User::where('company_id', $company->id)->first();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se encontró el usuario de la empresa.'
+                ], 404);
+            }
+            
+            $nit = $document->identification_number;
+            $xml = $document->xml;
+            
+            // Determinar el prefijo del archivo según el tipo de documento
+            $xmlPrefix = 'FES';
+            $typeDocId = $document->type_document_id;
+            switch ($typeDocId) {
+                case 4: $xmlPrefix = 'NCS'; break;
+                case 5: $xmlPrefix = 'NDS'; break;
+                case 11: $xmlPrefix = 'DSS'; break;
+                case 12: $xmlPrefix = 'NADS'; break;
+            }
+            
+            // Buscar el archivo XML firmado
+            $xmlPath = null;
+            $possiblePaths = [
+                storage_path("app/public/{$nit}/{$xml}"),
+                storage_path("app/{$nit}/{$xml}"),
+                storage_path("app/public/{$xml}"),
+            ];
+            
+            foreach ($possiblePaths as $path) {
+                if (file_exists($path)) {
+                    $xmlPath = $path;
+                    break;
+                }
+            }
+            
+            if (!$xmlPath) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se encontró el archivo XML firmado del documento.',
+                    'paths_tried' => $possiblePaths
+                ], 404);
+            }
+            
+            // Buscar el archivo ZIP
+            $zipName = str_replace('.xml', '.zip', $xml);
+            $zipPath = null;
+            $possibleZipPaths = [
+                storage_path("app/public/{$nit}/{$zipName}"),
+                storage_path("app/{$nit}/{$zipName}"),
+                storage_path("app/public/{$zipName}"),
+            ];
+            
+            foreach ($possibleZipPaths as $path) {
+                if (file_exists($path)) {
+                    $zipPath = $path;
+                    break;
+                }
+            }
+            
+            if (!$zipPath) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se encontró el archivo ZIP del documento.',
+                    'paths_tried' => $possibleZipPaths
+                ], 404);
+            }
+            
+            // Leer el contenido del ZIP en base64
+            $zipContent = base64_encode(file_get_contents($zipPath));
+            
+            // Preparar el envío a la DIAN
+            $sendBillSync = new SendBillSync($company->certificate->path, $company->certificate->password);
+            $sendBillSync->To = $company->software->url;
+            $sendBillSync->fileName = str_replace($xmlPrefix . '-', '', $xml);
+            $sendBillSync->contentFile = $zipContent;
+            
+            // Enviar a la DIAN
+            $reqPath = storage_path("app/public/{$nit}/Req-Resend-{$document->id}.xml");
+            $rptaPath = storage_path("app/public/{$nit}/Rpta-Resend-{$document->id}.xml");
+            
+            $respuestadian = $sendBillSync->signToSend($reqPath)->getResponseToObject($rptaPath);
+            
+            \Log::info('Resend DIAN Response for document ' . $document->id, ['response' => json_encode($respuestadian)]);
+            
+            // Verificar si hay error de servicio
+            if (isset($respuestadian->html)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El servicio DIAN no se encuentra disponible en el momento, reintente más tarde.'
+                ], 503);
+            }
+            
+            // Verificar respuesta
+            $isValid = false;
+            $cufe = null;
+            $statusMessage = '';
+            
+            if (isset($respuestadian->Envelope->Body->SendBillSyncResponse->SendBillSyncResult)) {
+                $result = $respuestadian->Envelope->Body->SendBillSyncResponse->SendBillSyncResult;
+                $isValid = ($result->IsValid == 'true');
+                
+                if ($isValid) {
+                    $cufe = $result->XmlDocumentKey ?? null;
+                    $statusMessage = $result->StatusMessage ?? 'Documento procesado exitosamente';
+                    
+                    // Actualizar documento
+                    $document->state_document_id = 1;
+                    $document->cufe = $cufe;
+                    $document->save();
+                    
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Documento reenviado y procesado exitosamente por la DIAN.',
+                        'cufe' => $cufe,
+                        'dian_response' => $statusMessage
+                    ]);
+                } else {
+                    // Extraer mensajes de error
+                    $errorMessages = [];
+                    if (isset($result->ErrorMessage)) {
+                        if (is_array($result->ErrorMessage->string)) {
+                            $errorMessages = $result->ErrorMessage->string;
+                        } else {
+                            $errorMessages[] = $result->ErrorMessage->string ?? $result->ErrorMessage;
+                        }
+                    }
+                    $statusMessage = $result->StatusMessage ?? 'Error en validación DIAN';
+                    
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'La DIAN rechazó el documento.',
+                        'dian_status' => $statusMessage,
+                        'errors' => $errorMessages,
+                        'response' => $respuestadian
+                    ], 400);
+                }
+            }
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Respuesta inesperada de la DIAN.',
+                'response' => $respuestadian
+            ], 500);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error resending document ' . $id . ': ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al reenviar documento: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
