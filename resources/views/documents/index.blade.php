@@ -2,8 +2,46 @@
 
 @section('content')
 <div class="card" style="margin-top: -20px;">
-    <div class="card-header d-flex justify-content-between align-items-center" style="padding: 10px 15px;">
-        <span style="font-weight: 600;">Lista de Documentos</span>
+    <div class="card-header" style="padding: 10px 15px;">
+        <div class="d-flex justify-content-between align-items-center flex-wrap">
+            <span style="font-weight: 600;">Lista de Documentos</span>
+            <button class="btn-filter-toggle" onclick="toggleFilters()">
+                <i class="fa fa-filter"></i> Filtros
+            </button>
+        </div>
+        
+        <!-- Filtros -->
+        <div id="filters-panel" class="filters-panel" style="display: none;">
+            <div class="filters-row">
+                <div class="filter-group">
+                    <label>Tipo Documento</label>
+                    <select id="filter-type" onchange="applyFilters()">
+                        <option value="">Todos</option>
+                        <option value="1">Factura</option>
+                        <option value="2">Factura Exportación</option>
+                        <option value="3">Contingencia</option>
+                        <option value="4">Nota Crédito</option>
+                        <option value="5">Nota Débito</option>
+                        <option value="6">Nómina</option>
+                        <option value="7">Nómina Ajuste</option>
+                        <option value="11">Doc. Soporte</option>
+                        <option value="12">Nota Ajuste DS</option>
+                        <option value="13">NC Doc. Soporte</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Cliente</label>
+                    <input type="text" id="filter-client" placeholder="Buscar cliente..." onkeyup="debounceFilter()">
+                </div>
+                <div class="filter-group">
+                    <label>Número</label>
+                    <input type="text" id="filter-number" placeholder="Número documento..." onkeyup="debounceFilter()">
+                </div>
+                <div class="filter-group">
+                    <button class="btn-clear" onclick="clearFilters()"><i class="fa fa-times"></i> Limpiar</button>
+                </div>
+            </div>
+        </div>
     </div>
     <div class="card-body" style="padding: 10px;">
         <div class="table-responsive">
@@ -43,6 +81,62 @@
 <style>
 .card { margin-bottom: 0; }
 .table-sm td, .table-sm th { padding: 8px 10px; font-size: 13px; }
+
+/* Filtros */
+.btn-filter-toggle {
+    background: #1e293b;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.btn-filter-toggle:hover { background: #334155; }
+.filters-panel {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e2e8f0;
+}
+.filters-row {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.filter-group label {
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 600;
+}
+.filter-group select, .filter-group input {
+    padding: 6px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 13px;
+    min-width: 150px;
+}
+.filter-group select:focus, .filter-group input:focus {
+    outline: none;
+    border-color: #f97316;
+}
+.btn-clear {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.btn-clear:hover { background: #dc2626; }
+
+/* Paginación */
 .pagination-box {
     margin-top: 15px;
     display: flex;
@@ -69,6 +163,8 @@
 .page-btn:hover:not(:disabled) { background: #ea580c; }
 .page-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
 .page-info { color: #64748b; font-size: 13px; }
+
+/* Estados y botones */
 .status-badge {
     display: inline-block;
     padding: 3px 8px;
@@ -79,7 +175,6 @@
 .status-success { background: #dcfce7; color: #166534; }
 .status-warning { background: #fef3c7; color: #92400e; }
 .status-info { background: #dbeafe; color: #1e40af; }
-.status-danger { background: #fee2e2; color: #991b1b; }
 .file-btn {
     display: inline-block;
     padding: 3px 6px;
@@ -100,7 +195,6 @@
     border-radius: 4px;
     font-size: 11px;
     font-weight: 600;
-    cursor: pointer;
     text-decoration: none;
 }
 .btn-dian:hover { background: #ea580c; color: white; text-decoration: none; }
@@ -120,7 +214,6 @@
     padding: 2px 4px;
     border-radius: 3px;
     margin-left: 4px;
-    display: inline-block;
 }
 .env-hab { background: #fef3c7; color: #92400e; }
 .env-prod { background: #dcfce7; color: #166534; }
@@ -131,6 +224,7 @@ let currentPage = 1;
 let totalPages = 1;
 let totalRecords = 0;
 const perPage = 15;
+let filterTimeout = null;
 
 const DIAN_URLS = {
     1: 'https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=',
@@ -141,11 +235,45 @@ document.addEventListener('DOMContentLoaded', function() {
     loadDocuments();
 });
 
+function toggleFilters() {
+    const panel = document.getElementById('filters-panel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function debounceFilter() {
+    clearTimeout(filterTimeout);
+    filterTimeout = setTimeout(applyFilters, 500);
+}
+
+function applyFilters() {
+    currentPage = 1;
+    loadDocuments();
+}
+
+function clearFilters() {
+    document.getElementById('filter-type').value = '';
+    document.getElementById('filter-client').value = '';
+    document.getElementById('filter-number').value = '';
+    currentPage = 1;
+    loadDocuments();
+}
+
 function loadDocuments() {
     let url = '/documents/records?page=' + currentPage + '&per_page=' + perPage;
+    
+    // Filtro de empresa desde URL
     const urlParams = new URLSearchParams(window.location.search);
     const company = urlParams.get('company');
     if (company) url += '&company=' + company;
+    
+    // Filtros del panel
+    const filterType = document.getElementById('filter-type').value;
+    const filterClient = document.getElementById('filter-client').value;
+    const filterNumber = document.getElementById('filter-number').value;
+    
+    if (filterType) url += '&type=' + filterType;
+    if (filterClient) url += '&client=' + encodeURIComponent(filterClient);
+    if (filterNumber) url += '&number=' + encodeURIComponent(filterNumber);
     
     fetch(url)
         .then(response => response.json())
@@ -174,13 +302,11 @@ function renderTable(documents) {
     documents.forEach((doc, index) => {
         const rowNum = (currentPage - 1) * perPage + index + 1;
         
-        // Estado con botón reenvío si aplica
         let statusHtml = '<span class="status-badge status-' + doc.state_class + '">' + doc.state_name + '</span>';
         if (doc.can_resend) {
             statusHtml += '<button class="btn-resend" onclick="resendDocument(' + doc.id + ')" title="Reenviar"><i class="fa fa-redo"></i></button>';
         }
         
-        // Archivos
         let filesHtml = '';
         if (doc.xml && doc.xml !== 'INITIAL_NUMBER.XML') {
             filesHtml += '<a href="/documents/downloadxml/' + doc.xml + '" class="file-btn xml">XML</a>';
@@ -190,7 +316,6 @@ function renderTable(documents) {
         }
         if (!filesHtml) filesHtml = '-';
         
-        // DIAN
         let dianHtml = '-';
         if (doc.cufe && doc.cufe.length > 10) {
             const dianUrl = DIAN_URLS[doc.environment] || DIAN_URLS[2];
@@ -230,7 +355,12 @@ function updatePagination() {
         btnPrev.disabled = currentPage <= 1;
         btnNext.disabled = currentPage >= totalPages;
     } else {
-        controls.style.display = 'none';
+        controls.style.display = totalRecords > 0 ? 'flex' : 'none';
+        if (totalRecords > 0) {
+            pageInfo.textContent = totalRecords + ' documento(s)';
+            btnPrev.style.display = 'none';
+            btnNext.style.display = 'none';
+        }
     }
 }
 
