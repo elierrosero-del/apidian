@@ -60,15 +60,17 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="CUFE" width="70" align="center">
+        <el-table-column label="DIAN" width="70" align="center">
           <template slot-scope="scope">
-            <el-tooltip 
+            <a 
               v-if="scope.row.cufe" 
-              :content="scope.row.cufe" 
-              placement="left"
+              :href="getDianUrl(scope.row.cufe)"
+              target="_blank"
+              class="dian-link"
+              title="Ver en DIAN"
             >
-              <i class="fa fa-check-circle cufe-ok"></i>
-            </el-tooltip>
+              <i class="fa fa-external-link-alt"></i>
+            </a>
             <span v-else class="text-muted">-</span>
           </template>
         </el-table-column>
@@ -116,6 +118,10 @@ export default {
     formatNumber(num) {
       if (!num) return '0';
       return Number(num).toLocaleString('es-CO');
+    },
+    getDianUrl(cufe) {
+      // URL oficial de la DIAN para consultar documentos electrónicos
+      return `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=${cufe}`;
     }
   }
 };
@@ -178,5 +184,24 @@ export default {
 .cufe-ok {
   color: #22c55e;
   font-size: 16px;
+}
+
+.dian-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: #f97316;
+  color: white;
+  border-radius: 4px;
+  text-decoration: none;
+}
+.dian-link:hover {
+  background: #ea580c;
+  color: white;
+}
+.dian-link i {
+  font-size: 12px;
 }
 </style>
