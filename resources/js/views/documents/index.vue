@@ -73,14 +73,18 @@
         </el-table-column>
       </el-table>
       
-      <div class="pagination-container">
-        <el-pagination
-          @current-change="handlePageChange"
-          :current-page="currentPage"
-          :page-size="pageSize"
-          :total="totalRecords"
-          layout="prev, pager, next, total"
-        ></el-pagination>
+      <!-- Paginación -->
+      <div class="pagination-box" v-if="totalRecords > pageSize">
+        <button class="page-btn" :disabled="currentPage === 1" @click="changePage(currentPage - 1)">
+          <i class="fa fa-chevron-left"></i> Anterior
+        </button>
+        <span class="page-info">Página {{ currentPage }} de {{ totalPages }} ({{ totalRecords }} documentos)</span>
+        <button class="page-btn" :disabled="currentPage >= totalPages" @click="changePage(currentPage + 1)">
+          Siguiente <i class="fa fa-chevron-right"></i>
+        </button>
+      </div>
+      <div class="pagination-info" v-else>
+        <span>Total: {{ totalRecords }} documentos</span>
       </div>
     </div>
   </div>
@@ -98,6 +102,11 @@ export default {
       pageSize: 15,
       totalRecords: 0
     };
+  },
+  computed: {
+    totalPages() {
+      return Math.ceil(this.totalRecords / this.pageSize);
+    }
   },
   created() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -125,6 +134,12 @@ export default {
     handlePageChange(page) {
       this.currentPage = page;
       this.getRecords();
+    },
+    changePage(page) {
+      if (page >= 1 && page <= this.totalPages) {
+        this.currentPage = page;
+        this.getRecords();
+      }
     },
     formatDate(date) {
       if (!date) return '-';
@@ -223,5 +238,51 @@ export default {
   margin-top: 20px;
   display: flex;
   justify-content: center;
+}
+
+.pagination-box {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  padding: 15px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.page-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #f97316;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #ea580c;
+}
+
+.page-btn:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.page-info {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.pagination-info {
+  margin-top: 15px;
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
 }
 </style>
