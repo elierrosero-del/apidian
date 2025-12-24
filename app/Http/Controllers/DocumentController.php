@@ -55,17 +55,35 @@ class DocumentController extends Controller
         
         $nit = $document->identification_number;
         
-        // Intentar varias rutas posibles
-        $possiblePaths = [
-            storage_path("app/public/{$nit}/{$xml}"),
-            storage_path("app/{$nit}/{$xml}"),
-            storage_path("app/public/{$xml}"),
-            storage_path("{$xml}"),
-        ];
+        // El archivo en BD es FES-xxx.xml pero el archivo físico es FE-xxx.xml (sin la S)
+        // Crear variantes del nombre
+        $xmlVariants = [$xml];
         
-        foreach ($possiblePaths as $filePath) {
-            if (file_exists($filePath)) {
-                return response()->download($filePath);
+        // Si empieza con FES-, también buscar FE-
+        if (strpos($xml, 'FES-') === 0) {
+            $xmlVariants[] = str_replace('FES-', 'FE-', $xml);
+        }
+        // Si empieza con NCS-, también buscar NC-
+        if (strpos($xml, 'NCS-') === 0) {
+            $xmlVariants[] = str_replace('NCS-', 'NC-', $xml);
+        }
+        // Si empieza con NDS-, también buscar ND-
+        if (strpos($xml, 'NDS-') === 0) {
+            $xmlVariants[] = str_replace('NDS-', 'ND-', $xml);
+        }
+        
+        // Intentar varias rutas posibles con todas las variantes
+        foreach ($xmlVariants as $xmlName) {
+            $possiblePaths = [
+                storage_path("app/public/{$nit}/{$xmlName}"),
+                storage_path("app/{$nit}/{$xmlName}"),
+                storage_path("app/public/{$xmlName}"),
+            ];
+            
+            foreach ($possiblePaths as $filePath) {
+                if (file_exists($filePath)) {
+                    return response()->download($filePath, $xml); // Descargar con nombre original
+                }
             }
         }
         
@@ -73,7 +91,7 @@ class DocumentController extends Controller
             'error' => 'Archivo XML no encontrado',
             'xml' => $xml,
             'nit' => $nit,
-            'paths_checked' => $possiblePaths
+            'variants_tried' => $xmlVariants
         ], 404);
     }
 
@@ -88,17 +106,30 @@ class DocumentController extends Controller
         
         $nit = $document->identification_number;
         
-        // Intentar varias rutas posibles
-        $possiblePaths = [
-            storage_path("app/public/{$nit}/{$pdf}"),
-            storage_path("app/{$nit}/{$pdf}"),
-            storage_path("app/public/{$pdf}"),
-            storage_path("{$pdf}"),
-        ];
+        // El archivo en BD es FES-xxx.pdf pero el archivo físico es FE-xxx.pdf (sin la S)
+        $pdfVariants = [$pdf];
         
-        foreach ($possiblePaths as $filePath) {
-            if (file_exists($filePath)) {
-                return response()->download($filePath);
+        if (strpos($pdf, 'FES-') === 0) {
+            $pdfVariants[] = str_replace('FES-', 'FE-', $pdf);
+        }
+        if (strpos($pdf, 'NCS-') === 0) {
+            $pdfVariants[] = str_replace('NCS-', 'NC-', $pdf);
+        }
+        if (strpos($pdf, 'NDS-') === 0) {
+            $pdfVariants[] = str_replace('NDS-', 'ND-', $pdf);
+        }
+        
+        foreach ($pdfVariants as $pdfName) {
+            $possiblePaths = [
+                storage_path("app/public/{$nit}/{$pdfName}"),
+                storage_path("app/{$nit}/{$pdfName}"),
+                storage_path("app/public/{$pdfName}"),
+            ];
+            
+            foreach ($possiblePaths as $filePath) {
+                if (file_exists($filePath)) {
+                    return response()->download($filePath, $pdf);
+                }
             }
         }
         
@@ -106,7 +137,7 @@ class DocumentController extends Controller
             'error' => 'Archivo PDF no encontrado',
             'pdf' => $pdf,
             'nit' => $nit,
-            'paths_checked' => $possiblePaths
+            'variants_tried' => $pdfVariants
         ], 404);
     }
    
