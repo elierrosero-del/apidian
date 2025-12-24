@@ -25,10 +25,23 @@ class DocumentCollection extends ResourceCollection
                 }
             }
             
+            // Determinar estado del documento
+            // state_document_id: 1 = Procesado OK, 0 = Pendiente/Error
+            $stateId = $row->state_document_id ?? 0;
+            $stateName = $stateId == 1 ? 'Procesado' : 'Pendiente';
+            $stateClass = $stateId == 1 ? 'success' : 'warning';
+            
+            // Verificar si tiene CUFE (indica que fue aceptado por DIAN)
+            if ($row->cufe) {
+                $stateName = 'Aceptado DIAN';
+                $stateClass = 'success';
+            }
+            
             return [
                 'key' => $key + 1,
                 'id' => $row->id,
                 'number' => $row->number,
+                'prefix' => $row->prefix,
                 'client' => $row->client->name ?? 'N/A',
                 'currency' => $row->currency->name ?? 'N/A',
                 'date' => $row->date_issue,
@@ -43,6 +56,11 @@ class DocumentCollection extends ResourceCollection
                 'url_pdf' => '',
                 'company_name' => $companyName,
                 'identification_number' => $row->identification_number,
+                'state_id' => $stateId,
+                'state_name' => $stateName,
+                'state_class' => $stateClass,
+                'cufe' => $row->cufe,
+                'type_document_id' => $row->type_document_id,
             ];
         });
     }

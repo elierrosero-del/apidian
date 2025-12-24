@@ -10,24 +10,66 @@
 
     <div class="card-body">
       <el-table :data="tableData" style="width: 100%">
-        <el-table-column prop="key" label="#" width="80"></el-table-column>
-        <el-table-column prop="number" label="Numero" width="120"></el-table-column>
-        <el-table-column prop="client" label="Cliente" width="180"></el-table-column>
-        <el-table-column prop="currency" label="Moneda" width="150"></el-table-column>
-        <el-table-column prop="date" label="Fecha" width="180"></el-table-column>
-        <el-table-column prop="total" label="Total" width="120"></el-table-column>
-        <el-table-column fixed="right" label="XML" width="80">
+        <el-table-column prop="key" label="#" width="60"></el-table-column>
+        <el-table-column label="Numero" width="130">
           <template slot-scope="scope">
-            <a :href="`${resource}/downloadxml/${scope.row.xml}`" target="_blank" class="btn btn-xs btn-info">
-              <i class="fa fa-download"></i>
-            </a>
+            {{ scope.row.prefix }}{{ scope.row.number }}
           </template>
         </el-table-column>
-        <el-table-column fixed="right" label="PDF" width="80">
+        <el-table-column prop="client" label="Cliente" width="160"></el-table-column>
+        <el-table-column prop="date" label="Fecha" width="110"></el-table-column>
+        <el-table-column prop="total" label="Total" width="100"></el-table-column>
+        <el-table-column label="Estado" width="130">
           <template slot-scope="scope">
-            <a :href="`${resource}/downloadpdf/${scope.row.pdf}`" target="_blank" class="btn btn-xs btn-info">
+            <span 
+              :class="'badge badge-' + scope.row.state_class"
+              style="padding: 5px 10px; border-radius: 4px;"
+            >
+              {{ scope.row.state_name }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column fixed="right" label="XML" width="70">
+          <template slot-scope="scope">
+            <a 
+              v-if="scope.row.xml && scope.row.xml !== 'INITIAL_NUMBER.XML'" 
+              :href="`/${resource}/downloadxml/${scope.row.xml}`" 
+              target="_blank" 
+              class="btn btn-xs btn-info"
+              title="Descargar XML"
+            >
               <i class="fa fa-download"></i>
             </a>
+            <span v-else class="text-muted">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column fixed="right" label="PDF" width="70">
+          <template slot-scope="scope">
+            <a 
+              v-if="scope.row.pdf && scope.row.pdf !== 'INITIAL_NUMBER.PDF'" 
+              :href="`/${resource}/downloadpdf/${scope.row.pdf}`" 
+              target="_blank" 
+              class="btn btn-xs btn-info"
+              title="Descargar PDF"
+            >
+              <i class="fa fa-download"></i>
+            </a>
+            <span v-else class="text-muted">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column fixed="right" label="CUFE" width="100">
+          <template slot-scope="scope">
+            <el-tooltip 
+              v-if="scope.row.cufe" 
+              :content="scope.row.cufe" 
+              placement="top"
+              effect="dark"
+            >
+              <span class="cufe-badge" style="cursor: pointer;">
+                <i class="fa fa-check-circle text-success"></i> Ver
+              </span>
+            </el-tooltip>
+            <span v-else class="text-muted">-</span>
           </template>
         </el-table-column>
       </el-table>
@@ -71,3 +113,21 @@ export default {
   }
 };
 </script>
+
+<style scoped>
+.badge-success {
+  background-color: #22c55e;
+  color: white;
+}
+.badge-warning {
+  background-color: #f59e0b;
+  color: white;
+}
+.badge-danger {
+  background-color: #ef4444;
+  color: white;
+}
+.cufe-badge {
+  font-size: 12px;
+}
+</style>
