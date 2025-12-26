@@ -263,7 +263,7 @@ class DocumentController extends Controller
                 ], 400);
             }
             
-            // Obtener la empresa
+            // Obtener la empresa (con sus relaciones: certificate, software)
             $company = Company::where('identification_number', $document->identification_number)->first();
             if (!$company) {
                 return response()->json([
@@ -272,8 +272,8 @@ class DocumentController extends Controller
                 ], 404);
             }
             
-            // Obtener el usuario de la empresa
-            $user = User::where('company_id', $company->id)->first();
+            // Obtener el usuario de la empresa (Company belongsTo User via user_id)
+            $user = $company->user;
             if (!$user) {
                 return response()->json([
                     'success' => false,
