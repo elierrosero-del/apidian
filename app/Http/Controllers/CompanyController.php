@@ -337,4 +337,199 @@ class CompanyController extends Controller
         
         return view('companies.partials.resolutions-list', compact('company'));
     }
+
+    /**
+     * Obtener datos completos de empresa para edición
+     */
+    public function getCompanyData($id)
+    {
+        $company = Company::with(['user', 'software', 'certificate', 'resolutions', 'municipality'])
+            ->findOrFail($id);
+        
+        return response()->json([
+            'company' => [
+                'id' => $company->id,
+                'identification_number' => $company->identification_number,
+                'dv' => $company->dv,
+                'name' => $company->user->name ?? '',
+                'email' => $company->user->email ?? '',
+                'phone' => $company->phone,
+                'address' => $company->address,
+                'merchant_registration' => $company->merchant_registration,
+                'municipality_id' => $company->municipality_id,
+                'department_id' => $company->municipality->department_id ?? null,
+                'type_document_identification_id' => $company->type_document_identification_id,
+                'type_organization_id' => $company->type_organization_id,
+                'type_regime_id' => $company->type_regime_id,
+                'type_liability_id' => $company->type_liability_id,
+                'type_environment_id' => $company->type_environment_id,
+                'state' => $company->state,
+            ],
+            'software' => $company->software ? [
+                'id' => $company->software->id,
+                'identifier' => $company->software->identifier,
+                'pin' => $company->software->pin,
+                'url' => $company->software->url,
+            ] : null,
+            'certificate' => $company->certificate ? [
+                'id' => $company->certificate->id,
+                'name' => $company->certificate->name,
+                'expiration' => $company->certificate->expiration ?? null,
+            ] : null,
+            'resolutions' => $company->resolutions->map(function($r) {
+                return [
+                    'id' => $r->id,
+                    'type_document_id' => $r->type_document_id,
+                    'prefix' => $r->prefix,
+                    'resolution' => $r->resolution,
+                    'resolution_date' => $r->resolution_date,
+                    'technical_key' => $r->technical_key,
+                    'from' => $r->from,
+                    'to' => $r->to,
+                    'next_consecutive' => $r->next_consecutive,
+                    'date_from' => $r->date_from,
+                    'date_to' => $r->date_to,
+                ];
+            }),
+        ]);
+    }
+
+    /**
+     * Actualizar software
+     */
+    public function updateSoftware(Request $request, $id)
+    {
+        try {
+            $company = Company::findOrFail($id);
+            
+            $software = Software::updateOrCreate(
+                ['company_id' => $id],
+                [
+                    'identifier' => $request->identifier,
+                    'pin' => $request->pin,
+                    'url' => $request->url,
+                ]
+            );
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Software actualizado correctamente'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Subir certificado
+     */
+    public function uploadCertificate(Request $request, $id)
+    {
+        try {
+            $company = Company::findOrFail($id);
+            
+            if (!$request->hasFile('certificate')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se ha seleccionado ningún archivo'
+                ], 400);
+            }
+            
+            $file = $request->file('certificate');
+            $password = $request->password;
+            
+            // Validar que sea un archivo .p12 o .pfx
+            $extension = strtolower($file->getClientOriginalExtension());
+            if (!in_array($extension, ['p12', 'pfx'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El archivo debe ser .p12 o .pfx'
+                ], 400);
+            }
+            
+            // Guardar archivo
+            $filename = $company->identification_number . '.' . $extension;
+            $path = $file->storeAs('certificates', $filename);
+            $fullPath = storage_path('app/' . $path);
+            
+            // Verificar certificado y obtener fecha de expiración
+            $expiration = null;
+            try {
+                $certContent = file_get_contents($fullPath);
+                if (openssl_pkcs12_read($certContent, $certs, $password)) {
+                    $certInfo = openssl_x509_parse($certs['cert']);
+                    if (isset($certInfo['validTo_time_t'])) {
+                        $expiration = date('Y-m-d', $certInfo['validTo_time_t']);
+                    }
+                } else {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Contraseña del certificado incorrecta'
+                    ], 400);
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Error reading certificate: ' . $e->getMessage());
+            }
+            
+            // Guardar o actualizar en BD
+            Certificate::updateOrCreate(
+                ['company_id' => $id],
+                [
+                    'name' => $filename,
+                    'password' => $password,
+                    'path' => $fullPath,
+                    'expiration' => $expiration,
+                ]
+            );
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Certificado cargado correctamente',
+                'expiration' => $expiration
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Crear resolución
+     */
+    public function createResolution(Request $request, $id)
+    {
+        try {
+            $company = Company::findOrFail($id);
+            
+            $resolution = Resolution::create([
+                'company_id' => $id,
+                'type_document_id' => $request->type_document_id,
+                'prefix' => $request->prefix,
+                'resolution' => $request->resolution,
+                'resolution_date' => $request->resolution_date,
+                'technical_key' => $request->technical_key,
+                'from' => $request->from,
+                'to' => $request->to,
+                'next_consecutive' => $request->from,
+                'date_from' => $request->date_from,
+                'date_to' => $request->date_to,
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Resolución creada correctamente',
+                'resolution' => $resolution
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

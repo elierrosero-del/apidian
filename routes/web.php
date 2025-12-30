@@ -71,13 +71,17 @@ Route::group(['middleware' => 'auth'], function() {
     Route::get('/companies', 'CompanyController@index')->name('companies_index');
     Route::get('/companies/records', 'CompanyController@records');
     Route::get('/companies/tables', 'CompanyController@tables');
-    Route::get('/companies/{id}', 'CompanyController@show');
-    Route::get('/companies/{id}/edit-form', 'CompanyController@editForm');
-    Route::put('/companies/{id}', 'CompanyController@update');
-    Route::delete('/companies/{id}', 'CompanyController@destroy');
-    Route::post('/companies/{id}/environment', 'CompanyController@changeEnvironment');
-    Route::post('/companies/{id}/toggle-state', 'CompanyController@toggleState');
-    Route::get('/companies/{id}/resolutions-list', 'CompanyController@resolutionsList');
+    Route::get('/companies/{id}', 'CompanyController@show')->where('id', '[0-9]+');
+    Route::get('/companies/{id}/data', 'CompanyController@getCompanyData')->where('id', '[0-9]+');
+    Route::get('/companies/{id}/edit-form', 'CompanyController@editForm')->where('id', '[0-9]+');
+    Route::put('/companies/{id}', 'CompanyController@update')->where('id', '[0-9]+');
+    Route::delete('/companies/{id}', 'CompanyController@destroy')->where('id', '[0-9]+');
+    Route::post('/companies/{id}/environment', 'CompanyController@changeEnvironment')->where('id', '[0-9]+');
+    Route::post('/companies/{id}/toggle-state', 'CompanyController@toggleState')->where('id', '[0-9]+');
+    Route::post('/companies/{id}/software', 'CompanyController@updateSoftware')->where('id', '[0-9]+');
+    Route::post('/companies/{id}/certificate', 'CompanyController@uploadCertificate')->where('id', '[0-9]+');
+    Route::get('/companies/{id}/resolutions-list', 'CompanyController@resolutionsList')->where('id', '[0-9]+');
+    Route::post('/companies/{id}/resolution', 'CompanyController@createResolution')->where('id', '[0-9]+');
     Route::put('/companies/resolution/{id}', 'CompanyController@updateResolution');
     Route::delete('/companies/resolution/{id}', 'CompanyController@deleteResolution');
 
