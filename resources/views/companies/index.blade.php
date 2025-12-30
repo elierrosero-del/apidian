@@ -2,19 +2,19 @@
 
 @section('content')
 <div class="card">
-    <div class="card-header">
+    <div class="card-header bg-dark text-white">
         <div class="d-flex justify-content-between align-items-center">
-            <h5 class="mb-0" style="font-weight: 600;">Gestión de Empresas</h5>
+            <h5 class="mb-0"><i class="fa fa-building mr-2"></i>Gestión de Empresas</h5>
             <div class="d-flex align-items-center" style="gap: 10px;">
-                <input type="text" id="search" class="form-control form-control-sm" placeholder="Buscar..." style="width: 200px;" onkeyup="debounceSearch()">
-                <a href="/configuration_admin" class="btn btn-sm btn-primary"><i class="fa fa-plus"></i> Nueva</a>
+                <input type="text" id="search" class="form-control form-control-sm" placeholder="Buscar..." style="width: 200px; border-radius: 4px;" onkeyup="debounceSearch()">
+                <a href="/configuration_admin" class="btn btn-sm btn-orange"><i class="fa fa-plus"></i> Nueva</a>
             </div>
         </div>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="thead-light">
+            <table class="table table-hover table-striped mb-0">
+                <thead class="thead-dark">
                     <tr>
                         <th>#</th>
                         <th>NIT</th>
@@ -28,54 +28,55 @@
                     </tr>
                 </thead>
                 <tbody id="companies-body">
-                    <tr><td colspan="9" class="text-center py-4">Cargando...</td></tr>
+                    <tr><td colspan="9" class="text-center py-4"><i class="fa fa-spinner fa-spin"></i> Cargando...</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 </div>
 
-<!-- Modal Editar Completo -->
-<div class="modal fade" id="editModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
+<!-- Modal Editar Empresa - Grande y Profesional -->
+<div class="modal fade" id="editModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-xl-custom" role="document">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="fa fa-building"></i> Editar Empresa: <span id="modal-company-name"></span></h5>
-                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            <div class="modal-header bg-orange">
+                <h5 class="modal-title text-white">
+                    <i class="fa fa-edit mr-2"></i>Editar Empresa: <span id="modal-company-name" class="font-weight-bold"></span>
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
             </div>
             <div class="modal-body p-0">
                 <!-- Tabs -->
-                <ul class="nav nav-tabs" id="companyTabs">
+                <ul class="nav nav-tabs nav-tabs-custom" id="companyTabs" role="tablist">
                     <li class="nav-item">
-                        <a class="nav-link active" data-toggle="tab" href="#tab-empresa">
-                            <i class="fa fa-building"></i> Empresa
+                        <a class="nav-link active" id="empresa-tab" data-toggle="tab" href="#tab-empresa" role="tab">
+                            <i class="fa fa-building mr-1"></i> Empresa
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" data-toggle="tab" href="#tab-software">
-                            <i class="fa fa-cog"></i> Software
+                        <a class="nav-link" id="software-tab" data-toggle="tab" href="#tab-software" role="tab">
+                            <i class="fa fa-cog mr-1"></i> Software
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" data-toggle="tab" href="#tab-certificado">
-                            <i class="fa fa-certificate"></i> Certificado
+                        <a class="nav-link" id="certificado-tab" data-toggle="tab" href="#tab-certificado" role="tab">
+                            <i class="fa fa-certificate mr-1"></i> Certificado
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" data-toggle="tab" href="#tab-resoluciones">
-                            <i class="fa fa-file-alt"></i> Resoluciones
+                        <a class="nav-link" id="resoluciones-tab" data-toggle="tab" href="#tab-resoluciones" role="tab">
+                            <i class="fa fa-file-alt mr-1"></i> Resoluciones
                         </a>
                     </li>
                 </ul>
-                <div class="tab-content p-4" id="companyTabsContent">
-                    <!-- Tab Empresa -->
-                    <div class="tab-pane fade show active" id="tab-empresa"></div>
-                    <!-- Tab Software -->
-                    <div class="tab-pane fade" id="tab-software"></div>
-                    <!-- Tab Certificado -->
-                    <div class="tab-pane fade" id="tab-certificado"></div>
-                    <!-- Tab Resoluciones -->
-                    <div class="tab-pane fade" id="tab-resoluciones"></div>
+                <!-- Tab Content -->
+                <div class="tab-content" id="companyTabsContent">
+                    <div class="tab-pane fade show active p-4" id="tab-empresa" role="tabpanel"></div>
+                    <div class="tab-pane fade p-4" id="tab-software" role="tabpanel"></div>
+                    <div class="tab-pane fade p-4" id="tab-certificado" role="tabpanel"></div>
+                    <div class="tab-pane fade p-4" id="tab-resoluciones" role="tabpanel"></div>
                 </div>
             </div>
         </div>
@@ -83,321 +84,831 @@
 </div>
 
 <style>
-.table thead th { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; padding: 12px; }
-.table tbody td { padding: 10px 12px; vertical-align: middle; font-size: 13px; }
-.env-badge, .state-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-.env-prod { background: #dcfce7; color: #166534; }
-.env-hab { background: #fef3c7; color: #92400e; }
-.state-active { background: #dcfce7; color: #166534; }
-.state-inactive { background: #fee2e2; color: #991b1b; }
-.nav-tabs .nav-link { color: #64748b; font-weight: 500; padding: 12px 20px; }
-.nav-tabs .nav-link.active { color: #f97316; border-bottom: 2px solid #f97316; }
-.nav-tabs .nav-link i { margin-right: 6px; }
-.form-group label { font-weight: 600; font-size: 12px; color: #64748b; margin-bottom: 4px; }
-.modal-xl { max-width: 900px; }
-.swal2-popup { font-size: 14px; }
+/* Modal Extra Grande */
+.modal-xl-custom {
+    max-width: 1100px;
+    width: 95%;
+    margin: 20px auto;
+}
+.modal-content {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+
+/* Header Naranja */
+.bg-orange {
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important;
+}
+.modal-header.bg-orange {
+    border-bottom: none;
+    padding: 15px 20px;
+    border-radius: 8px 8px 0 0;
+}
+.modal-header .close {
+    opacity: 0.9;
+    text-shadow: none;
+    font-size: 28px;
+}
+.modal-header .close:hover {
+    opacity: 1;
+}
+
+/* Tabs Personalizados */
+.nav-tabs-custom {
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    padding: 0 15px;
+}
+.nav-tabs-custom .nav-link {
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #6c757d;
+    font-weight: 500;
+    padding: 12px 20px;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+}
+.nav-tabs-custom .nav-link:hover {
+    color: #f97316;
+    border-color: transparent;
+    background: transparent;
+}
+.nav-tabs-custom .nav-link.active {
+    color: #f97316;
+    background: #fff;
+    border-bottom: 3px solid #f97316;
+    font-weight: 600;
+}
+
+/* Botón Naranja */
+.btn-orange {
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+.btn-orange:hover {
+    background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(249,115,22,0.4);
+}
+
+/* Tabla */
+.table thead th {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 12px 10px;
+    border-bottom: 2px solid #dee2e6;
+}
+.table tbody td {
+    padding: 10px;
+    vertical-align: middle;
+    font-size: 13px;
+}
+
+/* Badges */
+.badge-env-prod {
+    background: #28a745;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+}
+.badge-env-hab {
+    background: #ffc107;
+    color: #212529;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+}
+.badge-active {
+    background: #28a745;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+}
+.badge-inactive {
+    background: #dc3545;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+}
+
+/* Dropdown Acciones */
+.dropdown-menu {
+    border: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    border-radius: 6px;
+}
+.dropdown-item {
+    padding: 8px 16px;
+    font-size: 13px;
+}
+.dropdown-item:hover {
+    background: #fff3e0;
+}
+.dropdown-item i {
+    width: 20px;
+    margin-right: 8px;
+}
+
+/* Formularios en Modal */
+.tab-content {
+    min-height: 350px;
+}
+.form-group label {
+    font-weight: 600;
+    font-size: 12px;
+    color: #495057;
+    margin-bottom: 5px;
+}
+.form-control {
+    border-radius: 4px;
+    border: 1px solid #ced4da;
+    padding: 8px 12px;
+    font-size: 14px;
+}
+.form-control:focus {
+    border-color: #f97316;
+    box-shadow: 0 0 0 0.2rem rgba(249,115,22,0.15);
+}
+
+/* Card en tabs */
+.info-card {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+.info-card-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+/* Tabla resoluciones */
+.table-resoluciones th {
+    font-size: 11px;
+    background: #f8f9fa;
+}
+.table-resoluciones td {
+    font-size: 12px;
+}
 </style>
 
-<!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-let searchTimeout, tables = {}, currentCompanyId = null;
-const csrf = document.querySelector('meta[name="csrf-token"]').content;
+let companies = [];
+let tables = {};
+let currentCompanyId = null;
+let currentCompanyData = null;
+let searchTimeout = null;
 
+// Cargar al iniciar
 document.addEventListener('DOMContentLoaded', function() {
-    loadCompanies();
     loadTables();
+    loadCompanies();
 });
 
+// Debounce para búsqueda
 function debounceSearch() {
     clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(loadCompanies, 300);
+    searchTimeout = setTimeout(() => loadCompanies(), 300);
 }
 
+// Cargar tablas de referencia
 function loadTables() {
-    fetch('/companies/tables').then(r => r.json()).then(data => { tables = data; });
+    fetch('/companies/tables')
+        .then(r => r.json())
+        .then(data => { tables = data; })
+        .catch(e => console.error('Error cargando tablas:', e));
 }
 
+// Cargar empresas
 function loadCompanies() {
     const search = document.getElementById('search').value;
     fetch('/companies/records?search=' + encodeURIComponent(search))
         .then(r => r.json())
-        .then(data => renderTable(data.data))
+        .then(data => {
+            companies = data.data;
+            renderTable();
+        })
         .catch(e => {
-            document.getElementById('companies-body').innerHTML = '<tr><td colspan="9" class="text-center text-danger">Error al cargar</td></tr>';
+            console.error('Error:', e);
+            document.getElementById('companies-body').innerHTML = 
+                '<tr><td colspan="9" class="text-center text-danger py-4">Error al cargar datos</td></tr>';
         });
 }
 
-function renderTable(companies) {
+// Renderizar tabla
+function renderTable() {
     const tbody = document.getElementById('companies-body');
-    if (!companies || companies.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4">No hay empresas</td></tr>';
+    if (!companies.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4">No hay empresas registradas</td></tr>';
         return;
     }
-    let html = '';
-    companies.forEach((c, i) => {
-        const envClass = c.type_environment_id == 1 ? 'env-prod' : 'env-hab';
-        const envText = c.type_environment_id == 1 ? 'Producción' : 'Habilitación';
-        const stateClass = c.state ? 'state-active' : 'state-inactive';
-        const stateText = c.state ? 'Activa' : 'Inactiva';
-        html += `<tr>
+    
+    tbody.innerHTML = companies.map((c, i) => `
+        <tr>
             <td>${i + 1}</td>
-            <td><strong>${c.identification_number || '-'}</strong></td>
+            <td><strong>${c.identification_number}</strong>-${c.dv || '0'}</td>
             <td>${c.name}</td>
-            <td>${c.email}</td>
-            <td><span class="env-badge ${envClass}">${envText}</span></td>
-            <td><span class="state-badge ${stateClass}">${stateText}</span></td>
+            <td><small>${c.email}</small></td>
+            <td>
+                <span class="badge-env-${c.type_environment_id == 1 ? 'prod' : 'hab'}">
+                    ${c.type_environment_id == 1 ? 'Producción' : 'Habilitación'}
+                </span>
+            </td>
+            <td>
+                <span class="badge-${c.state ? 'active' : 'inactive'}">
+                    ${c.state ? 'Activa' : 'Inactiva'}
+                </span>
+            </td>
             <td><span class="badge badge-secondary">${c.documents_count}</span></td>
-            <td>${c.created_at}</td>
+            <td><small>${c.created_at}</small></td>
             <td class="text-center">
                 <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-toggle="dropdown">Acciones</button>
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown">
+                        Acciones
+                    </button>
                     <div class="dropdown-menu dropdown-menu-right">
-                        <a class="dropdown-item" href="#" onclick="editCompany(${c.id}, '${c.name}')"><i class="fa fa-edit text-primary"></i> Editar</a>
-                        <a class="dropdown-item" href="/documents?company=${c.identification_number}"><i class="fa fa-folder text-warning"></i> Documentos</a>
+                        <a class="dropdown-item" href="#" onclick="editCompany(${c.id})">
+                            <i class="fa fa-edit text-primary"></i> Editar
+                        </a>
+                        <a class="dropdown-item" href="#" onclick="changeEnvironment(${c.id}, ${c.type_environment_id})">
+                            <i class="fa fa-exchange-alt text-info"></i> Cambiar Ambiente
+                        </a>
+                        <a class="dropdown-item" href="#" onclick="toggleState(${c.id}, ${c.state})">
+                            <i class="fa fa-${c.state ? 'ban text-warning' : 'check text-success'}"></i> 
+                            ${c.state ? 'Deshabilitar' : 'Habilitar'}
+                        </a>
                         <div class="dropdown-divider"></div>
-                        <a class="dropdown-item" href="#" onclick="changeEnvironment(${c.id}, ${c.type_environment_id}, '${c.name}')"><i class="fa fa-exchange-alt text-success"></i> Cambiar Ambiente</a>
-                        <a class="dropdown-item" href="#" onclick="toggleState(${c.id}, ${c.state}, '${c.name}')"><i class="fa fa-power-off ${c.state ? 'text-danger' : 'text-success'}"></i> ${c.state ? 'Deshabilitar' : 'Habilitar'}</a>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item text-danger" href="#" onclick="deleteCompany(${c.id}, '${c.identification_number}', '${c.name}')"><i class="fa fa-trash"></i> Eliminar</a>
+                        <a class="dropdown-item text-danger" href="#" onclick="deleteCompany(${c.id}, '${c.identification_number}')">
+                            <i class="fa fa-trash"></i> Eliminar
+                        </a>
                     </div>
                 </div>
             </td>
-        </tr>`;
-    });
-    tbody.innerHTML = html;
+        </tr>
+    `).join('');
 }
-</script>
 
-<script>
-function editCompany(id, name) {
+// Editar empresa
+function editCompany(id) {
     currentCompanyId = id;
-    document.getElementById('modal-company-name').textContent = name;
-    fetch('/companies/' + id + '/data')
+    fetch(`/companies/${id}/data`)
         .then(r => r.json())
         .then(data => {
+            currentCompanyData = data;
+            document.getElementById('modal-company-name').textContent = data.company.name;
             renderEmpresaTab(data);
             renderSoftwareTab(data);
             renderCertificadoTab(data);
             renderResolucionesTab(data);
             $('#editModal').modal('show');
+        })
+        .catch(e => {
+            Swal.fire('Error', 'No se pudo cargar la empresa', 'error');
         });
 }
 
+// Tab Empresa
 function renderEmpresaTab(data) {
     const c = data.company;
-    let deptOptions = '<option value="">Seleccionar...</option>';
-    tables.departments.forEach(d => {
-        deptOptions += `<option value="${d.id}" ${c.department_id == d.id ? 'selected' : ''}>${d.name}</option>`;
-    });
-    let typeDocOptions = tables.type_document_identifications.map(t => 
-        `<option value="${t.id}" ${c.type_document_identification_id == t.id ? 'selected' : ''}>${t.name}</option>`
-    ).join('');
-    let orgOptions = tables.type_organizations.map(t => 
-        `<option value="${t.id}" ${c.type_organization_id == t.id ? 'selected' : ''}>${t.name}</option>`
-    ).join('');
-    let regOptions = tables.type_regimes.map(t => 
-        `<option value="${t.id}" ${c.type_regime_id == t.id ? 'selected' : ''}>${t.name}</option>`
-    ).join('');
-    let liabOptions = tables.type_liabilities.map(t => 
-        `<option value="${t.id}" ${c.type_liability_id == t.id ? 'selected' : ''}>${t.name}</option>`
-    ).join('');
-    
     document.getElementById('tab-empresa').innerHTML = `
-        <form id="empresaForm">
+        <form id="form-empresa">
             <div class="row">
-                <div class="col-md-3"><div class="form-group"><label>Identificación</label><input type="text" name="identification_number" class="form-control" value="${c.identification_number || ''}" required></div></div>
-                <div class="col-md-1"><div class="form-group"><label>DV</label><input type="text" name="dv" class="form-control" value="${c.dv || ''}" maxlength="1"></div></div>
-                <div class="col-md-4"><div class="form-group"><label>Nombre/Razón Social</label><input type="text" name="name" class="form-control" value="${c.name || ''}" required></div></div>
-                <div class="col-md-4"><div class="form-group"><label>Email</label><input type="email" name="email" class="form-control" value="${c.email || ''}" required></div></div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label>Identificación</label>
+                        <input type="text" class="form-control" name="identification_number" value="${c.identification_number}" required>
+                    </div>
+                </div>
+                <div class="col-md-1">
+                    <div class="form-group">
+                        <label>DV</label>
+                        <input type="text" class="form-control" name="dv" value="${c.dv || ''}" maxlength="1">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label>Nombre/Razón Social</label>
+                        <input type="text" class="form-control" name="name" value="${c.name}" required>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" class="form-control" name="email" value="${c.email}" required>
+                    </div>
+                </div>
             </div>
             <div class="row">
-                <div class="col-md-4"><div class="form-group"><label>Teléfono</label><input type="text" name="phone" class="form-control" value="${c.phone || ''}"></div></div>
-                <div class="col-md-4"><div class="form-group"><label>Dirección</label><input type="text" name="address" class="form-control" value="${c.address || ''}"></div></div>
-                <div class="col-md-4"><div class="form-group"><label>Registro Mercantil</label><input type="text" name="merchant_registration" class="form-control" value="${c.merchant_registration || ''}"></div></div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <input type="text" class="form-control" name="phone" value="${c.phone || ''}">
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="form-group">
+                        <label>Dirección</label>
+                        <input type="text" class="form-control" name="address" value="${c.address || ''}">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label>Registro Mercantil</label>
+                        <input type="text" class="form-control" name="merchant_registration" value="${c.merchant_registration || ''}">
+                    </div>
+                </div>
             </div>
             <div class="row">
-                <div class="col-md-3"><div class="form-group"><label>Tipo Documento</label><select name="type_document_identification_id" class="form-control">${typeDocOptions}</select></div></div>
-                <div class="col-md-3"><div class="form-group"><label>Departamento</label><select name="department_id" class="form-control" onchange="loadMunicipios(this.value, ${c.municipality_id})">${deptOptions}</select></div></div>
-                <div class="col-md-3"><div class="form-group"><label>Municipio</label><select name="municipality_id" id="municipio_select" class="form-control"><option value="${c.municipality_id}">Cargando...</option></select></div></div>
-                <div class="col-md-3"><div class="form-group"><label>Organización</label><select name="type_organization_id" class="form-control">${orgOptions}</select></div></div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label>Tipo Documento</label>
+                        <select class="form-control" name="type_document_identification_id">
+                            ${(tables.type_document_identifications || []).map(t => 
+                                `<option value="${t.id}" ${t.id == c.type_document_identification_id ? 'selected' : ''}>${t.name}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label>Departamento</label>
+                        <select class="form-control" name="department_id" onchange="loadMunicipios(this.value)">
+                            <option value="">Seleccione...</option>
+                            ${(tables.departments || []).map(d => 
+                                `<option value="${d.id}" ${d.id == c.department_id ? 'selected' : ''}>${d.name}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label>Municipio</label>
+                        <select class="form-control" name="municipality_id" id="select-municipio">
+                            ${(tables.municipalities || []).filter(m => m.department_id == c.department_id).map(m => 
+                                `<option value="${m.id}" ${m.id == c.municipality_id ? 'selected' : ''}>${m.name}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label>Organización</label>
+                        <select class="form-control" name="type_organization_id">
+                            ${(tables.type_organizations || []).map(t => 
+                                `<option value="${t.id}" ${t.id == c.type_organization_id ? 'selected' : ''}>${t.name}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                </div>
             </div>
             <div class="row">
-                <div class="col-md-4"><div class="form-group"><label>Régimen</label><select name="type_regime_id" class="form-control">${regOptions}</select></div></div>
-                <div class="col-md-4"><div class="form-group"><label>Responsabilidad</label><select name="type_liability_id" class="form-control">${liabOptions}</select></div></div>
-                <div class="col-md-4"><div class="form-group"><label>Estado</label><select name="state" class="form-control"><option value="1" ${c.state ? 'selected' : ''}>Activa</option><option value="0" ${!c.state ? 'selected' : ''}>Inactiva</option></select></div></div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label>Régimen</label>
+                        <select class="form-control" name="type_regime_id">
+                            ${(tables.type_regimes || []).map(t => 
+                                `<option value="${t.id}" ${t.id == c.type_regime_id ? 'selected' : ''}>${t.name}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label>Responsabilidad</label>
+                        <select class="form-control" name="type_liability_id">
+                            ${(tables.type_liabilities || []).map(t => 
+                                `<option value="${t.id}" ${t.id == c.type_liability_id ? 'selected' : ''}>${t.name}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label>Estado</label>
+                        <select class="form-control" name="state">
+                            <option value="1" ${c.state ? 'selected' : ''}>Activa</option>
+                            <option value="0" ${!c.state ? 'selected' : ''}>Inactiva</option>
+                        </select>
+                    </div>
+                </div>
             </div>
             <hr>
-            <button type="button" class="btn btn-primary" onclick="saveEmpresa()"><i class="fa fa-save"></i> Guardar Empresa</button>
-        </form>`;
-    if (c.department_id) loadMunicipios(c.department_id, c.municipality_id);
+            <button type="submit" class="btn btn-orange">
+                <i class="fa fa-save mr-1"></i> Guardar Empresa
+            </button>
+        </form>
+    `;
+    
+    document.getElementById('form-empresa').addEventListener('submit', saveEmpresa);
 }
 
-function loadMunicipios(deptId, selectedId) {
-    const select = document.getElementById('municipio_select');
-    const filtered = tables.municipalities.filter(m => m.department_id == deptId);
-    select.innerHTML = '<option value="">Seleccionar...</option>' + filtered.map(m => 
-        `<option value="${m.id}" ${m.id == selectedId ? 'selected' : ''}>${m.name}</option>`
-    ).join('');
+// Cargar municipios por departamento
+function loadMunicipios(departmentId) {
+    const select = document.getElementById('select-municipio');
+    const municipios = (tables.municipalities || []).filter(m => m.department_id == departmentId);
+    select.innerHTML = municipios.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
 }
 
-function saveEmpresa() {
-    const form = document.getElementById('empresaForm');
-    const data = Object.fromEntries(new FormData(form).entries());
-    fetch('/companies/' + currentCompanyId, {
+// Guardar empresa
+function saveEmpresa(e) {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    const data = Object.fromEntries(form.entries());
+    
+    fetch(`/companies/${currentCompanyId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        },
         body: JSON.stringify(data)
-    }).then(r => r.json()).then(res => {
+    })
+    .then(r => r.json())
+    .then(res => {
         if (res.success) {
             Swal.fire('¡Guardado!', res.message, 'success');
             loadCompanies();
         } else {
             Swal.fire('Error', res.message, 'error');
         }
-    });
+    })
+    .catch(e => Swal.fire('Error', 'No se pudo guardar', 'error'));
 }
 </script>
 
 <script>
+// Tab Software
 function renderSoftwareTab(data) {
     const s = data.software || {};
     document.getElementById('tab-software').innerHTML = `
-        <form id="softwareForm">
-            <div class="alert alert-info"><i class="fa fa-info-circle"></i> Configure el software DIAN para esta empresa.</div>
+        <div class="info-card">
+            <div class="info-card-title"><i class="fa fa-info-circle mr-1"></i> Información del Software DIAN</div>
+            <p class="text-muted small mb-0">Configure el identificador y PIN del software registrado en la DIAN para esta empresa.</p>
+        </div>
+        <form id="form-software">
             <div class="row">
-                <div class="col-md-6"><div class="form-group"><label>ID Software (Identifier)</label><input type="text" name="identifier" class="form-control" value="${s.identifier || ''}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div></div>
-                <div class="col-md-6"><div class="form-group"><label>PIN</label><input type="text" name="pin" class="form-control" value="${s.pin || ''}" placeholder="12345"></div></div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label>Identificador del Software</label>
+                        <input type="text" class="form-control" name="identifier" value="${s.identifier || ''}" 
+                            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label>PIN del Software</label>
+                        <input type="text" class="form-control" name="pin" value="${s.pin || ''}" 
+                            placeholder="12345" required>
+                    </div>
+                </div>
             </div>
             <div class="row">
-                <div class="col-md-12"><div class="form-group"><label>URL Servicio DIAN</label><input type="text" name="url" class="form-control" value="${s.url || 'https://vpfe.dian.gov.co/WcfDianCustomerServices.svc'}"></div></div>
+                <div class="col-md-12">
+                    <div class="form-group">
+                        <label>URL del Servicio (opcional)</label>
+                        <input type="text" class="form-control" name="url" value="${s.url || ''}" 
+                            placeholder="https://...">
+                    </div>
+                </div>
             </div>
             <hr>
-            <button type="button" class="btn btn-primary" onclick="saveSoftware()"><i class="fa fa-save"></i> Guardar Software</button>
-        </form>`;
+            <button type="submit" class="btn btn-orange">
+                <i class="fa fa-save mr-1"></i> Guardar Software
+            </button>
+        </form>
+    `;
+    
+    document.getElementById('form-software').addEventListener('submit', saveSoftware);
 }
 
-function saveSoftware() {
-    const form = document.getElementById('softwareForm');
-    const data = Object.fromEntries(new FormData(form).entries());
-    fetch('/companies/' + currentCompanyId + '/software', {
+// Guardar software
+function saveSoftware(e) {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    const data = Object.fromEntries(form.entries());
+    
+    fetch(`/companies/${currentCompanyId}/software`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        },
         body: JSON.stringify(data)
-    }).then(r => r.json()).then(res => {
+    })
+    .then(r => r.json())
+    .then(res => {
         if (res.success) {
             Swal.fire('¡Guardado!', res.message, 'success');
         } else {
             Swal.fire('Error', res.message, 'error');
         }
-    });
+    })
+    .catch(e => Swal.fire('Error', 'No se pudo guardar', 'error'));
 }
 
+// Tab Certificado
 function renderCertificadoTab(data) {
-    const c = data.certificate;
-    let certInfo = '<div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> No hay certificado cargado.</div>';
-    if (c) {
-        const expClass = c.expiration && new Date(c.expiration) < new Date() ? 'text-danger' : 'text-success';
-        certInfo = `<div class="alert alert-success">
-            <i class="fa fa-check-circle"></i> Certificado: <strong>${c.name}</strong><br>
-            <span class="${expClass}">Vence: ${c.expiration || 'No disponible'}</span>
-        </div>`;
-    }
+    const cert = data.certificate || {};
     document.getElementById('tab-certificado').innerHTML = `
-        ${certInfo}
-        <form id="certificadoForm" enctype="multipart/form-data">
+        <div class="info-card">
+            <div class="info-card-title"><i class="fa fa-shield-alt mr-1"></i> Certificado Digital</div>
+            <p class="text-muted small mb-0">Suba el certificado digital (.p12 o .pfx) para firmar los documentos electrónicos.</p>
+        </div>
+        ${cert.name ? `
+            <div class="alert alert-success">
+                <i class="fa fa-check-circle mr-2"></i>
+                <strong>Certificado actual:</strong> ${cert.name}
+                ${cert.expiration ? `<br><small>Vence: ${cert.expiration}</small>` : ''}
+            </div>
+        ` : `
+            <div class="alert alert-warning">
+                <i class="fa fa-exclamation-triangle mr-2"></i>
+                No hay certificado cargado para esta empresa.
+            </div>
+        `}
+        <form id="form-certificado" enctype="multipart/form-data">
             <div class="row">
-                <div class="col-md-6"><div class="form-group"><label>Archivo Certificado (.p12 o .pfx)</label><input type="file" name="certificate" class="form-control" accept=".p12,.pfx" required></div></div>
-                <div class="col-md-6"><div class="form-group"><label>Contraseña del Certificado</label><input type="password" name="password" class="form-control" required></div></div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label>Archivo del Certificado (.p12 / .pfx)</label>
+                        <input type="file" class="form-control-file" name="certificate" accept=".p12,.pfx" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label>Contraseña del Certificado</label>
+                        <input type="password" class="form-control" name="password" placeholder="••••••••" required>
+                    </div>
+                </div>
             </div>
             <hr>
-            <button type="button" class="btn btn-primary" onclick="uploadCertificate()"><i class="fa fa-upload"></i> Cargar Certificado</button>
-        </form>`;
+            <button type="submit" class="btn btn-orange">
+                <i class="fa fa-upload mr-1"></i> Subir Certificado
+            </button>
+        </form>
+    `;
+    
+    document.getElementById('form-certificado').addEventListener('submit', uploadCertificate);
 }
 
-function uploadCertificate() {
-    const form = document.getElementById('certificadoForm');
-    const formData = new FormData(form);
-    Swal.fire({ title: 'Cargando certificado...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    fetch('/companies/' + currentCompanyId + '/certificate', {
+// Subir certificado
+function uploadCertificate(e) {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    
+    Swal.fire({
+        title: 'Subiendo certificado...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+    
+    fetch(`/companies/${currentCompanyId}/certificate`, {
         method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrf },
-        body: formData
-    }).then(r => r.json()).then(res => {
-        Swal.close();
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        },
+        body: form
+    })
+    .then(r => r.json())
+    .then(res => {
         if (res.success) {
-            Swal.fire('¡Cargado!', res.message + (res.expiration ? '<br>Vence: ' + res.expiration : ''), 'success');
-            editCompany(currentCompanyId, document.getElementById('modal-company-name').textContent);
+            Swal.fire('¡Cargado!', res.message, 'success');
+            // Actualizar vista
+            fetch(`/companies/${currentCompanyId}/data`)
+                .then(r => r.json())
+                .then(data => renderCertificadoTab(data));
         } else {
             Swal.fire('Error', res.message, 'error');
         }
-    });
+    })
+    .catch(e => Swal.fire('Error', 'No se pudo subir el certificado', 'error'));
 }
-</script>
 
-<script>
+// Tab Resoluciones
 function renderResolucionesTab(data) {
-    let rows = '';
-    if (data.resolutions && data.resolutions.length > 0) {
-        data.resolutions.forEach(r => {
-            rows += `<tr id="res-${r.id}">
-                <td>${r.type_document_id}</td>
-                <td><strong>${r.prefix}</strong></td>
-                <td>${r.resolution}</td>
-                <td>${r.from}</td>
-                <td>${r.to}</td>
-                <td><input type="number" class="form-control form-control-sm" style="width:80px" value="${r.next_consecutive}" id="next-${r.id}"></td>
-                <td><small>${r.date_from} - ${r.date_to}</small></td>
-                <td>
-                    <button class="btn btn-sm btn-success" onclick="updateResolution(${r.id})"><i class="fa fa-save"></i></button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteResolution(${r.id})"><i class="fa fa-trash"></i></button>
-                </td>
-            </tr>`;
-        });
-    }
+    const resolutions = data.resolutions || [];
+    const typeDocuments = [
+        {id: 1, name: 'Factura'},
+        {id: 2, name: 'Factura Exportación'},
+        {id: 3, name: 'Factura Contingencia'},
+        {id: 4, name: 'Nota Crédito'},
+        {id: 5, name: 'Nota Débito'},
+        {id: 11, name: 'Doc. Soporte'},
+        {id: 12, name: 'Nota Ajuste DS'}
+    ];
+    
     document.getElementById('tab-resoluciones').innerHTML = `
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0"><i class="fa fa-list mr-1"></i> Resoluciones Configuradas</h6>
+            <button class="btn btn-sm btn-orange" onclick="showNewResolutionForm()">
+                <i class="fa fa-plus mr-1"></i> Nueva Resolución
+            </button>
+        </div>
+        
+        <div id="new-resolution-form" style="display:none;" class="info-card mb-3">
+            <h6 class="mb-3">Nueva Resolución</h6>
+            <form id="form-new-resolution">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label>Tipo Documento</label>
+                            <select class="form-control form-control-sm" name="type_document_id" required>
+                                ${typeDocuments.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>Prefijo</label>
+                            <input type="text" class="form-control form-control-sm" name="prefix" required>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label>Resolución</label>
+                            <input type="text" class="form-control form-control-sm" name="resolution" required>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>Fecha Resolución</label>
+                            <input type="date" class="form-control form-control-sm" name="resolution_date" required>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>Clave Técnica</label>
+                            <input type="text" class="form-control form-control-sm" name="technical_key">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>Desde</label>
+                            <input type="number" class="form-control form-control-sm" name="from" required>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>Hasta</label>
+                            <input type="number" class="form-control form-control-sm" name="to" required>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>Fecha Desde</label>
+                            <input type="date" class="form-control form-control-sm" name="date_from" required>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>Fecha Hasta</label>
+                            <input type="date" class="form-control form-control-sm" name="date_to" required>
+                        </div>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="submit" class="btn btn-sm btn-orange mr-2">
+                            <i class="fa fa-save"></i> Guardar
+                        </button>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="hideNewResolutionForm()">
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
         <div class="table-responsive">
-            <table class="table table-sm table-bordered">
-                <thead class="thead-light">
-                    <tr><th>Tipo</th><th>Prefijo</th><th>Resolución</th><th>Desde</th><th>Hasta</th><th>Actual</th><th>Vigencia</th><th>Acciones</th></tr>
+            <table class="table table-sm table-bordered table-resoluciones">
+                <thead>
+                    <tr>
+                        <th>Tipo</th>
+                        <th>Prefijo</th>
+                        <th>Resolución</th>
+                        <th>Rango</th>
+                        <th>Consecutivo</th>
+                        <th>Vigencia</th>
+                        <th>Acciones</th>
+                    </tr>
                 </thead>
-                <tbody>${rows || '<tr><td colspan="8" class="text-center">No hay resoluciones</td></tr>'}</tbody>
+                <tbody>
+                    ${resolutions.length ? resolutions.map(r => `
+                        <tr>
+                            <td>${typeDocuments.find(t => t.id == r.type_document_id)?.name || r.type_document_id}</td>
+                            <td><strong>${r.prefix}</strong></td>
+                            <td>${r.resolution}</td>
+                            <td>${r.from} - ${r.to}</td>
+                            <td><span class="badge badge-info">${r.next_consecutive || r.from}</span></td>
+                            <td><small>${r.date_from || ''} al ${r.date_to || ''}</small></td>
+                            <td>
+                                <button class="btn btn-xs btn-outline-primary" onclick="editResolution(${r.id})" title="Editar">
+                                    <i class="fa fa-edit"></i>
+                                </button>
+                                <button class="btn btn-xs btn-outline-danger" onclick="deleteResolution(${r.id})" title="Eliminar">
+                                    <i class="fa fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('') : '<tr><td colspan="7" class="text-center text-muted">No hay resoluciones configuradas</td></tr>'}
+                </tbody>
             </table>
-        </div>`;
+        </div>
+    `;
+    
+    const formNew = document.getElementById('form-new-resolution');
+    if (formNew) {
+        formNew.addEventListener('submit', createResolution);
+    }
 }
 
-function updateResolution(id) {
-    const next = document.getElementById('next-' + id).value;
-    fetch('/companies/resolution/' + id, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
-        body: JSON.stringify({ next_consecutive: next })
-    }).then(r => r.json()).then(res => {
-        if (res.success) Swal.fire('¡Guardado!', 'Resolución actualizada', 'success');
-        else Swal.fire('Error', res.message, 'error');
-    });
+function showNewResolutionForm() {
+    document.getElementById('new-resolution-form').style.display = 'block';
 }
 
+function hideNewResolutionForm() {
+    document.getElementById('new-resolution-form').style.display = 'none';
+}
+
+// Crear resolución
+function createResolution(e) {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    const data = Object.fromEntries(form.entries());
+    
+    fetch(`/companies/${currentCompanyId}/resolution`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            Swal.fire('¡Creada!', res.message, 'success');
+            // Recargar datos
+            fetch(`/companies/${currentCompanyId}/data`)
+                .then(r => r.json())
+                .then(data => {
+                    currentCompanyData = data;
+                    renderResolucionesTab(data);
+                });
+        } else {
+            Swal.fire('Error', res.message, 'error');
+        }
+    })
+    .catch(e => Swal.fire('Error', 'No se pudo crear la resolución', 'error'));
+}
+
+// Eliminar resolución
 function deleteResolution(id) {
     Swal.fire({
         title: '¿Eliminar resolución?',
         text: 'Esta acción no se puede deshacer',
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
+        confirmButtonColor: '#f97316',
+        cancelButtonColor: '#6c757d',
         confirmButtonText: 'Sí, eliminar',
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
-            fetch('/companies/resolution/' + id, {
+            fetch(`/companies/resolution/${id}`, {
                 method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': csrf }
-            }).then(r => r.json()).then(res => {
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                }
+            })
+            .then(r => r.json())
+            .then(res => {
                 if (res.success) {
-                    document.getElementById('res-' + id).remove();
-                    Swal.fire('Eliminada', 'Resolución eliminada', 'success');
+                    Swal.fire('Eliminada', res.message, 'success');
+                    fetch(`/companies/${currentCompanyId}/data`)
+                        .then(r => r.json())
+                        .then(data => {
+                            currentCompanyData = data;
+                            renderResolucionesTab(data);
+                        });
                 } else {
                     Swal.fire('Error', res.message, 'error');
                 }
@@ -405,15 +916,15 @@ function deleteResolution(id) {
         }
     });
 }
-</script>
 
-<script>
-function changeEnvironment(id, currentEnv, name) {
+// Cambiar ambiente
+function changeEnvironment(id, currentEnv) {
     const newEnv = currentEnv == 1 ? 2 : 1;
     const envName = newEnv == 1 ? 'Producción' : 'Habilitación';
+    
     Swal.fire({
-        title: 'Cambiar Ambiente',
-        html: `¿Cambiar <strong>${name}</strong> a <strong>${envName}</strong>?`,
+        title: '¿Cambiar ambiente?',
+        text: `La empresa pasará a ambiente de ${envName}`,
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#f97316',
@@ -422,14 +933,19 @@ function changeEnvironment(id, currentEnv, name) {
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
-            fetch('/companies/' + id + '/environment', {
+            fetch(`/companies/${id}/environment`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                },
                 body: JSON.stringify({ type_environment_id: newEnv })
-            }).then(r => r.json()).then(res => {
+            })
+            .then(r => r.json())
+            .then(res => {
                 if (res.success) {
+                    Swal.fire('¡Cambiado!', res.message, 'success');
                     loadCompanies();
-                    Swal.fire('¡Cambiado!', `Ambiente cambiado a ${envName}`, 'success');
                 } else {
                     Swal.fire('Error', res.message, 'error');
                 }
@@ -438,26 +954,31 @@ function changeEnvironment(id, currentEnv, name) {
     });
 }
 
-function toggleState(id, currentState, name) {
+// Habilitar/Deshabilitar
+function toggleState(id, currentState) {
     const action = currentState ? 'deshabilitar' : 'habilitar';
+    
     Swal.fire({
         title: `¿${currentState ? 'Deshabilitar' : 'Habilitar'} empresa?`,
-        html: `¿Desea ${action} <strong>${name}</strong>?`,
-        icon: 'warning',
+        icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: currentState ? '#d33' : '#28a745',
+        confirmButtonColor: '#f97316',
         cancelButtonColor: '#6c757d',
         confirmButtonText: `Sí, ${action}`,
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
-            fetch('/companies/' + id + '/toggle-state', {
+            fetch(`/companies/${id}/toggle-state`, {
                 method: 'POST',
-                headers: { 'X-CSRF-TOKEN': csrf }
-            }).then(r => r.json()).then(res => {
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                }
+            })
+            .then(r => r.json())
+            .then(res => {
                 if (res.success) {
-                    loadCompanies();
                     Swal.fire('¡Listo!', res.message, 'success');
+                    loadCompanies();
                 } else {
                     Swal.fire('Error', res.message, 'error');
                 }
@@ -466,33 +987,32 @@ function toggleState(id, currentState, name) {
     });
 }
 
-function deleteCompany(id, nit, name) {
+// Eliminar empresa
+function deleteCompany(id, nit) {
     Swal.fire({
-        title: '⚠️ Eliminar Empresa',
-        html: `<p>¿Está seguro de eliminar <strong>${name}</strong> (${nit})?</p>
-               <p class="text-danger"><small>Se eliminarán: Usuario, Software, Certificado, Resoluciones y todos los datos asociados.</small></p>`,
+        title: '¿Eliminar empresa?',
+        html: `<p>Se eliminará la empresa <strong>${nit}</strong> y todos sus datos asociados:</p>
+               <ul class="text-left"><li>Resoluciones</li><li>Software</li><li>Certificado</li><li>Usuario</li></ul>
+               <p class="text-danger"><strong>Esta acción no se puede deshacer.</strong></p>`,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#d33',
+        confirmButtonColor: '#dc3545',
         cancelButtonColor: '#6c757d',
         confirmButtonText: 'Sí, eliminar todo',
-        cancelButtonText: 'Cancelar',
-        input: 'text',
-        inputPlaceholder: `Escriba "${nit}" para confirmar`,
-        inputValidator: (value) => {
-            if (value !== nit) return 'Debe escribir el NIT correctamente para confirmar';
-        }
+        cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
-            Swal.fire({ title: 'Eliminando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-            fetch('/companies/' + id, {
+            fetch(`/companies/${id}`, {
                 method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': csrf }
-            }).then(r => r.json()).then(res => {
-                Swal.close();
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                }
+            })
+            .then(r => r.json())
+            .then(res => {
                 if (res.success) {
-                    loadCompanies();
                     Swal.fire('Eliminada', res.message, 'success');
+                    loadCompanies();
                 } else {
                     Swal.fire('Error', res.message, 'error');
                 }
