@@ -532,4 +532,39 @@ class CompanyController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Obtener documentos de una empresa
+     */
+    public function getDocuments($id)
+    {
+        try {
+            $company = Company::findOrFail($id);
+            
+            $documents = Document::where('identification_number', $company->identification_number)
+                ->orderBy('created_at', 'desc')
+                ->limit(100)
+                ->get()
+                ->map(function($doc) {
+                    return [
+                        'id' => $doc->id,
+                        'type_document_id' => $doc->type_document_id,
+                        'prefix' => $doc->prefix,
+                        'number' => $doc->number,
+                        'total' => $doc->total ?? 0,
+                        'state_document_id' => $doc->state_document_id,
+                        'cufe' => $doc->cufe,
+                        'created_at' => $doc->created_at ? $doc->created_at->format('Y-m-d H:i') : '',
+                    ];
+                });
+            
+            return response()->json(['data' => $documents]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage(),
+                'data' => []
+            ], 500);
+        }
+    }
 }

@@ -82,6 +82,7 @@ Route::group(['middleware' => 'auth'], function() {
     Route::post('/companies/{id}/certificate', 'CompanyController@uploadCertificate')->where('id', '[0-9]+');
     Route::get('/companies/{id}/resolutions-list', 'CompanyController@resolutionsList')->where('id', '[0-9]+');
     Route::post('/companies/{id}/resolution', 'CompanyController@createResolution')->where('id', '[0-9]+');
+    Route::get('/companies/{id}/documents', 'CompanyController@getDocuments')->where('id', '[0-9]+');
     Route::put('/companies/resolution/{id}', 'CompanyController@updateResolution');
     Route::delete('/companies/resolution/{id}', 'CompanyController@deleteResolution');
 
