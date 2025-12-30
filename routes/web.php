@@ -67,6 +67,20 @@ Route::group(['middleware' => 'auth'], function() {
     Route::get('configuration/tables', 'ConfigurationController@tables');
     Route::get('configuration/records', 'ConfigurationController@records');
 
+    // Companies Management
+    Route::get('/companies', 'CompanyController@index')->name('companies_index');
+    Route::get('/companies/records', 'CompanyController@records');
+    Route::get('/companies/tables', 'CompanyController@tables');
+    Route::get('/companies/{id}', 'CompanyController@show');
+    Route::get('/companies/{id}/edit-form', 'CompanyController@editForm');
+    Route::put('/companies/{id}', 'CompanyController@update');
+    Route::delete('/companies/{id}', 'CompanyController@destroy');
+    Route::post('/companies/{id}/environment', 'CompanyController@changeEnvironment');
+    Route::post('/companies/{id}/toggle-state', 'CompanyController@toggleState');
+    Route::get('/companies/{id}/resolutions-list', 'CompanyController@resolutionsList');
+    Route::put('/companies/resolution/{id}', 'CompanyController@updateResolution');
+    Route::delete('/companies/resolution/{id}', 'CompanyController@deleteResolution');
+
     Route::get('tax', 'TaxController@index')->name('tax_index');
     Route::get('tax/records', 'TaxController@records');
 

@@ -33,15 +33,15 @@ $cust_id = $path[2];
                                 <span>Impuestos</span>
                             </a>
                         </li>
-                        <li class="nav-parent {{ in_array($path[0], ['configuration'])?'nav-active nav-expanded':'' }}">
+                        <li class="nav-parent {{ in_array($path[0], ['configuration', 'companies'])?'nav-active nav-expanded':'' }}">
                             <a class="nav-link" href="#">
                                 <i class="fas fa-building" aria-hidden="true"></i>
                                 <span>Empresas</span>
                             </a>
                             <ul class="nav nav-children">
-                                <li class="{{ (request()->routeIs('configuration_index'))?'nav-active':'' }}">
-                                    <a class="nav-link" href="{{route('configuration_index')}}">
-                                        <span>Ver Empresas</span>
+                                <li class="{{ (request()->routeIs('companies_index') || $path[0] === 'companies')?'nav-active':'' }}">
+                                    <a class="nav-link" href="{{route('companies_index')}}">
+                                        <span>Gestionar Empresas</span>
                                     </a>
                                 </li>
                                 <li class="{{ (request()->routeIs('configuration_admin'))?'nav-active':'' }}">
