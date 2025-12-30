@@ -261,6 +261,9 @@ Route::middleware('auth:api')->group(function () {
 
         Route::get('download/{identification}/{file}/{type_response?}', 'Api\DownloadController@publicDownload');
 
+        // Customer - Get Acquirer (consultar adquirente en DIAN)
+        Route::get('/customer/{document}/{id}', 'Api\CustomerController@getAcquirer');
+
     });
 });
 
