@@ -209,7 +209,7 @@ function applyFilters() {
 function load() {
     var url = '/documents/records?page=' + page + '&per_page=15';
     var params = new URLSearchParams(window.location.search);
-    var company = params.get('company');
+    var company = params.get('company') || params.get('nit');
     if (company) url += '&company=' + company;
     
     var type = document.getElementById('filter-type').value;
