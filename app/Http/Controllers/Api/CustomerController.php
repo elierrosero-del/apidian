@@ -71,24 +71,43 @@ class CustomerController extends Controller
 
     public function getAcquirer($document_type_identification_id, $document_number)
     {
-        $response = $this->createXML($document_type_identification_id, $document_number);
+        try {
+            \Log::info('GetAcquirer request', [
+                'document_type' => $document_type_identification_id,
+                'document_number' => $document_number
+            ]);
 
-        $status = $response->Envelope->Body->GetAcquirerResponse->GetAcquirerResult->StatusCode;
-        $message = $response->Envelope->Body->GetAcquirerResponse->GetAcquirerResult->Message;
-        if($status === '404') {
+            $response = $this->createXML($document_type_identification_id, $document_number);
+
+            \Log::info('GetAcquirer response', ['response' => json_encode($response)]);
+
+            $status = $response->Envelope->Body->GetAcquirerResponse->GetAcquirerResult->StatusCode ?? null;
+            $message = $response->Envelope->Body->GetAcquirerResponse->GetAcquirerResult->Message ?? '';
+
+            if($status === '404') {
+                return [
+                    'success' => false,
+                    'message' => $message,
+                    'status' => $status
+                ];
+            }
+
             return [
-                'success' => false,
+                'success' => true,
                 'message' => $message,
+                'ResponseDian' => $response->Envelope->Body,
                 'status' => $status
             ];
-        }
+        } catch (\Exception $e) {
+            \Log::error('GetAcquirer error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
 
-        return [
-            'success' => true,
-            'message' => $message,
-            'ResponseDian' => $response->Envelope->Body,
-            'status' => $status
-        ];
+            return [
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ];
+        }
     }
 
     protected function createXML($document_type_identification_id, $document_number)
