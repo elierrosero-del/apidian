@@ -98,6 +98,8 @@
 .res-tbl td{padding:10px;font-size:13px;border-bottom:1px solid #f3f4f6;}
 .btn-del{background:#fee2e2;color:#dc2626;border:none;padding:5px 8px;border-radius:4px;cursor:pointer;}
 .btn-del:hover{background:#fecaca;}
+.btn-edit{background:#dbeafe;color:#2563eb;border:none;padding:5px 8px;border-radius:4px;cursor:pointer;margin-right:4px;}
+.btn-edit:hover{background:#bfdbfe;}
 .new-res{background:#f9fafb;border-radius:6px;padding:15px;margin-bottom:15px;display:none;}
 </style>
 
@@ -164,9 +166,9 @@ function fillT1(){
 function fillT2(){
     var s=cdata.software||{};
     var h='<div class="section-title">Configuración del Software DIAN</div>';
-    h+='<div class="row mb-3"><div class="col-md-6"><label class="frm-label">Identificador del Software</label><input class="frm-input" id="s1" value="'+(s.identifier||'')+'" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>';
-    h+='<div class="col-md-6"><label class="frm-label">PIN del Software</label><input class="frm-input" id="s2" value="'+(s.pin||'')+'" placeholder="12345"></div></div>';
-    h+='<div class="row mb-3"><div class="col-md-12"><label class="frm-label">URL del Servicio (opcional)</label><input class="frm-input" id="s3" value="'+(s.url||'')+'" placeholder="https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc"></div></div>';
+    h+='<div class="row mb-3"><div class="col-md-12"><label class="frm-label">Identificador del Software</label><input class="frm-input" id="s1" value="'+(s.identifier||'')+'" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="font-family:monospace;"></div></div>';
+    h+='<div class="row mb-3"><div class="col-md-4"><label class="frm-label">PIN del Software</label><input class="frm-input" id="s2" value="'+(s.pin||'')+'" placeholder="12345"></div>';
+    h+='<div class="col-md-8"><label class="frm-label">URL del Servicio (opcional)</label><input class="frm-input" id="s3" value="'+(s.url||'')+'" placeholder="https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc"></div></div>';
     h+='<button class="btn-save" onclick="saveT2()"><i class="fa fa-save mr-1"></i> Guardar Software</button>';
     document.getElementById('t2').innerHTML=h;
 }
@@ -190,10 +192,26 @@ function fillT4(){
     h+='<div class="col-md-2"><label class="frm-label">Desde</label><input type="number" class="frm-input" id="nr4"></div>';
     h+='<div class="col-md-2"><label class="frm-label">Hasta</label><input type="number" class="frm-input" id="nr5"></div>';
     h+='<div class="col-md-2"><label class="frm-label">&nbsp;</label><button class="btn-save" style="width:100%;" onclick="addRes()"><i class="fa fa-check"></i></button></div></div></div>';
-    h+='<table class="res-tbl"><thead><tr><th>Tipo</th><th>Prefijo</th><th>Resolución</th><th>Rango</th><th>Consecutivo</th><th>Vigencia</th><th></th></tr></thead><tbody>';
-    if(r.length){r.forEach(x=>{var tn=tp.find(t=>t.id==x.type_document_id);h+='<tr><td>'+(tn?tn.n:x.type_document_id)+'</td><td><b>'+x.prefix+'</b></td><td>'+x.resolution+'</td><td>'+x.from+' - '+x.to+'</td><td>'+x.prefix+(x.next_consecutive||x.from)+'</td><td><small>'+(x.date_from||'')+' al '+(x.date_to||'')+'</small></td><td><button class="btn-del" onclick="delRes('+x.id+')"><i class="fa fa-trash"></i></button></td></tr>';});}
-    else{h+='<tr><td colspan="7" class="text-center text-muted py-3">No hay resoluciones</td></tr>';}
-    h+='</tbody></table>';
+    h+='<div class="table-responsive"><table class="res-tbl"><thead><tr><th style="width:100px;">Tipo</th><th style="width:70px;">Prefijo</th><th style="width:120px;">Resolución</th><th style="width:100px;">Rango</th><th style="width:80px;">Actual</th><th>Vigencia</th><th style="width:80px;text-align:center;">Acciones</th></tr></thead><tbody>';
+    if(r.length){
+        r.forEach(x=>{
+            var tn=tp.find(t=>t.id==x.type_document_id);
+            h+='<tr id="row-'+x.id+'">';
+            h+='<td>'+(tn?tn.n:x.type_document_id)+'</td>';
+            h+='<td><strong>'+x.prefix+'</strong></td>';
+            h+='<td>'+x.resolution+'</td>';
+            h+='<td>'+x.from+' - '+x.to+'</td>';
+            h+='<td><span style="background:#0ea5e9;color:white;padding:3px 8px;border-radius:4px;font-size:12px;font-family:monospace;">'+(x.next_consecutive||x.from)+'</span></td>';
+            h+='<td><small>'+(x.date_from||'')+' al '+(x.date_to||'')+'</small></td>';
+            h+='<td style="text-align:center;">';
+            h+='<button class="btn-edit" onclick="editRes('+x.id+')" title="Editar"><i class="fa fa-edit"></i></button> ';
+            h+='<button class="btn-del" onclick="delRes('+x.id+')" title="Eliminar"><i class="fa fa-trash"></i></button>';
+            h+='</td></tr>';
+        });
+    } else {
+        h+='<tr><td colspan="7" class="text-center text-muted py-3">No hay resoluciones configuradas</td></tr>';
+    }
+    h+='</tbody></table></div>';
     h+='<button class="btn btn-secondary mt-3" data-dismiss="modal">Cerrar</button>';
     document.getElementById('t4').innerHTML=h;
 }
@@ -224,6 +242,66 @@ function addRes(){
 function delRes(id){
     Swal.fire({title:'¿Eliminar?',icon:'warning',showCancelButton:true,confirmButtonColor:'#f97316'}).then(r=>{
         if(r.isConfirmed)fetch('/companies/resolution/'+id,{method:'DELETE',headers:{'X-CSRF-TOKEN':csrf()}}).then(r=>r.json()).then(()=>{fetch('/companies/'+cid+'/data').then(r=>r.json()).then(d=>{cdata=d;fillT4();});});
+    });
+}
+function editRes(id){
+    var res=cdata.resolutions.find(r=>r.id==id);
+    if(!res)return;
+    Swal.fire({
+        title:'Editar Resolución',
+        html:'<div style="text-align:left;">'+
+            '<label style="font-size:12px;color:#666;display:block;margin-bottom:4px;">Prefijo</label>'+
+            '<input id="ed_prefix" class="swal2-input" value="'+res.prefix+'" style="margin:0 0 10px 0;width:100%;">'+
+            '<label style="font-size:12px;color:#666;display:block;margin-bottom:4px;">Resolución</label>'+
+            '<input id="ed_res" class="swal2-input" value="'+res.resolution+'" style="margin:0 0 10px 0;width:100%;">'+
+            '<div style="display:flex;gap:10px;">'+
+            '<div style="flex:1;"><label style="font-size:12px;color:#666;display:block;margin-bottom:4px;">Desde</label>'+
+            '<input id="ed_from" type="number" class="swal2-input" value="'+res.from+'" style="margin:0;width:100%;"></div>'+
+            '<div style="flex:1;"><label style="font-size:12px;color:#666;display:block;margin-bottom:4px;">Hasta</label>'+
+            '<input id="ed_to" type="number" class="swal2-input" value="'+res.to+'" style="margin:0;width:100%;"></div>'+
+            '</div>'+
+            '<div style="display:flex;gap:10px;margin-top:10px;">'+
+            '<div style="flex:1;"><label style="font-size:12px;color:#666;display:block;margin-bottom:4px;">Consecutivo Actual</label>'+
+            '<input id="ed_next" type="number" class="swal2-input" value="'+(res.next_consecutive||res.from)+'" style="margin:0;width:100%;"></div>'+
+            '<div style="flex:1;"><label style="font-size:12px;color:#666;display:block;margin-bottom:4px;">Clave Técnica</label>'+
+            '<input id="ed_key" class="swal2-input" value="'+(res.technical_key||'')+'" style="margin:0;width:100%;"></div>'+
+            '</div>'+
+            '<div style="display:flex;gap:10px;margin-top:10px;">'+
+            '<div style="flex:1;"><label style="font-size:12px;color:#666;display:block;margin-bottom:4px;">Fecha Desde</label>'+
+            '<input id="ed_dfrom" type="date" class="swal2-input" value="'+(res.date_from||'')+'" style="margin:0;width:100%;"></div>'+
+            '<div style="flex:1;"><label style="font-size:12px;color:#666;display:block;margin-bottom:4px;">Fecha Hasta</label>'+
+            '<input id="ed_dto" type="date" class="swal2-input" value="'+(res.date_to||'')+'" style="margin:0;width:100%;"></div>'+
+            '</div>'+
+            '</div>',
+        showCancelButton:true,
+        confirmButtonText:'Guardar',
+        confirmButtonColor:'#f97316',
+        cancelButtonText:'Cancelar',
+        preConfirm:()=>{
+            return {
+                prefix:document.getElementById('ed_prefix').value,
+                resolution:document.getElementById('ed_res').value,
+                from:document.getElementById('ed_from').value,
+                to:document.getElementById('ed_to').value,
+                next_consecutive:document.getElementById('ed_next').value,
+                technical_key:document.getElementById('ed_key').value,
+                date_from:document.getElementById('ed_dfrom').value,
+                date_to:document.getElementById('ed_dto').value
+            };
+        }
+    }).then(result=>{
+        if(result.isConfirmed){
+            fetch('/companies/resolution/'+id,{
+                method:'PUT',
+                headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrf()},
+                body:JSON.stringify(result.value)
+            }).then(r=>r.json()).then(x=>{
+                if(x.success){
+                    Swal.fire('Actualizada','','success');
+                    fetch('/companies/'+cid+'/data').then(r=>r.json()).then(d=>{cdata=d;fillT4();});
+                }else Swal.fire('Error',x.message,'error');
+            });
+        }
     });
 }
 function chgEnv(id,c){
