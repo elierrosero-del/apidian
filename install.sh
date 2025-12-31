@@ -51,28 +51,89 @@ MYSQL_PORT=${MYSQL_PORT:-3306}
 # Detectar si puerto 80 está en uso
 USE_PROXY=false
 INTERNAL_PORT=8081
+DIRECT_PORT=80
+PORT_80_USED_BY=""
 
-if lsof -i :80 > /dev/null 2>&1 || ss -tuln | grep -q ':80 '; then
-    echo -e "${YELLOW}⚠ Puerto 80 en uso. Se configurará proxy con Nginx del sistema.${NC}"
-    USE_PROXY=true
+if ss -tuln | grep -q ':80 '; then
+    # Detectar qué está usando el puerto 80
+    PORT_80_USED_BY=$(ss -tlnp | grep ':80 ' | head -1)
     
-    # Verificar si Nginx del sistema está instalado
-    if ! command -v nginx &> /dev/null; then
-        echo -e "${YELLOW}Instalando Nginx del sistema para proxy...${NC}"
-        apt-get update
-        apt-get install -y nginx
-    fi
-else
-    # Puerto 80 libre, preguntar si quiere usar puerto directo o proxy
-    read -p "¿Usar puerto 80 directamente? (s=puerto 80, n=proxy en 8081) [s]: " use_direct
-    if [[ "$use_direct" == "n" || "$use_direct" == "N" ]]; then
-        USE_PROXY=true
-        if ! command -v nginx &> /dev/null; then
-            echo -e "${YELLOW}Instalando Nginx del sistema para proxy...${NC}"
-            apt-get update
-            apt-get install -y nginx
+    if echo "$PORT_80_USED_BY" | grep -q "docker-proxy"; then
+        echo -e "${YELLOW}⚠ Puerto 80 usado por otro contenedor Docker.${NC}"
+        echo ""
+        echo "Opciones:"
+        echo "  1) Usar puerto 8081 directamente (acceder via http://${DOMAIN}:8081)"
+        echo "  2) Detener el otro Docker y usar puerto 80"
+        echo "  3) Configurar proxy en tu otro Nginx/Docker (manual)"
+        echo ""
+        read -p "Selecciona opción [1]: " port_option
+        port_option=${port_option:-1}
+        
+        case $port_option in
+            1)
+                USE_PROXY=false
+                DIRECT_PORT=${INTERNAL_PORT}
+                echo -e "${GREEN}✓ APIDIAN usará puerto ${INTERNAL_PORT} directamente${NC}"
+                ;;
+            2)
+                echo -e "${YELLOW}Deteniendo otros contenedores Docker...${NC}"
+                # Listar contenedores que usan puerto 80
+                docker ps --format "{{.Names}}" | while read container; do
+                    if docker port "$container" 2>/dev/null | grep -q "0.0.0.0:80"; then
+                        echo "Deteniendo $container..."
+                        docker stop "$container"
+                    fi
+                done
+                USE_PROXY=false
+                DIRECT_PORT=80
+                echo -e "${GREEN}✓ Puerto 80 liberado. APIDIAN usará puerto 80${NC}"
+                ;;
+            3)
+                USE_PROXY=false
+                DIRECT_PORT=${INTERNAL_PORT}
+                echo -e "${YELLOW}APIDIAN usará puerto ${INTERNAL_PORT}. Configura el proxy manualmente.${NC}"
+                ;;
+        esac
+    else
+        # Puerto 80 usado por servicio del sistema (Apache, Nginx nativo, etc)
+        echo -e "${YELLOW}⚠ Puerto 80 usado por servicio del sistema.${NC}"
+        
+        # Verificar si es Nginx del sistema
+        if systemctl is-active --quiet nginx 2>/dev/null; then
+            echo -e "${GREEN}✓ Nginx del sistema detectado. Configurando proxy...${NC}"
+            USE_PROXY=true
+        else
+            echo ""
+            echo "Opciones:"
+            echo "  1) Usar puerto 8081 directamente"
+            echo "  2) Instalar Nginx del sistema como proxy"
+            echo ""
+            read -p "Selecciona opción [1]: " sys_option
+            sys_option=${sys_option:-1}
+            
+            if [ "$sys_option" = "2" ]; then
+                # Detener servicio que usa puerto 80
+                echo "Deteniendo servicio en puerto 80..."
+                fuser -k 80/tcp 2>/dev/null || true
+                sleep 2
+                
+                USE_PROXY=true
+                if ! command -v nginx &> /dev/null; then
+                    echo -e "${YELLOW}Instalando Nginx del sistema...${NC}"
+                    apt-get update
+                    apt-get install -y nginx
+                fi
+            else
+                USE_PROXY=false
+                DIRECT_PORT=${INTERNAL_PORT}
+            fi
         fi
     fi
+else
+    # Puerto 80 libre
+    echo -e "${GREEN}✓ Puerto 80 disponible${NC}"
+    USE_PROXY=false
+    DIRECT_PORT=80
 fi
 
 # Determinar si usar SSL
@@ -88,8 +149,7 @@ echo "  SSL: $([ "$USE_SSL" = true ] && echo "Sí (Let's Encrypt)" || echo "No")
 if [ "$USE_PROXY" = true ]; then
     echo "  Modo: Proxy (Nginx del sistema -> Docker:$INTERNAL_PORT)"
 else
-    echo "  Puerto HTTP: $HTTP_PORT"
-    echo "  Puerto HTTPS: $HTTPS_PORT"
+    echo "  Puerto HTTP: $DIRECT_PORT"
 fi
 echo "  Puerto MySQL: $MYSQL_PORT"
 echo ""
@@ -321,6 +381,9 @@ NGINXCONF
 if [ "$USE_PROXY" = true ]; then
     echo -e "${YELLOW}Configurando Nginx del sistema como proxy...${NC}"
     
+    # Eliminar default site si existe para evitar conflictos
+    rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
+    
     cat > /etc/nginx/sites-available/apidian << PROXYNGINX
 server {
     listen 80;
@@ -346,22 +409,39 @@ PROXYNGINX
     # Activar sitio
     ln -sf /etc/nginx/sites-available/apidian /etc/nginx/sites-enabled/
     
-    # Verificar configuración
-    nginx -t && systemctl reload nginx
+    # Verificar configuración e iniciar/recargar Nginx
+    if nginx -t; then
+        if systemctl is-active --quiet nginx; then
+            systemctl reload nginx
+        else
+            systemctl start nginx
+        fi
+        echo -e "${GREEN}✓ Nginx del sistema configurado${NC}"
+    else
+        echo -e "${RED}Error en configuración de Nginx${NC}"
+        exit 1
+    fi
 fi
 
 echo -e "${GREEN}✓ Nginx configurado${NC}"
 
 # ============================================
-# 4. CONFIGURAR PUERTOS EN .ENV
+# 4. CONFIGURAR PUERTOS EN .ENV Y DOCKER-COMPOSE
 # ============================================
 echo -e "${YELLOW}[4/9] Configurando puertos...${NC}"
 
-# Siempre usar puerto interno 8081 para Docker
-# El proxy del sistema (si existe) redirige 80 -> 8081
-HTTP_PORT=${INTERNAL_PORT}
+# Determinar puerto a usar
+if [ "$USE_PROXY" = true ]; then
+    HTTP_PORT=${INTERNAL_PORT}
+else
+    HTTP_PORT=${DIRECT_PORT}
+fi
 
-echo -e "${GREEN}✓ Docker usará puerto ${INTERNAL_PORT}${NC}"
+# Actualizar docker-compose.yml con el puerto correcto
+sed -i "s/\${HTTP_PORT:-8081}/${HTTP_PORT}/g" docker-compose.yml
+sed -i "s/\${HTTP_PORT:-80}/${HTTP_PORT}/g" docker-compose.yml
+
+echo -e "${GREEN}✓ Docker usará puerto ${HTTP_PORT}${NC}"
 
 # ============================================
 # 5. CREAR ARCHIVO .ENV
@@ -376,11 +456,17 @@ if [ "$USE_SSL" = true ]; then
     APP_URL="https://${DOMAIN}"
 elif [ "$USE_PROXY" = true ]; then
     APP_URL="http://${DOMAIN}"
+elif [ "$HTTP_PORT" = "80" ]; then
+    if [ "$DOMAIN" = "localhost" ]; then
+        APP_URL="http://${SERVER_IP}"
+    else
+        APP_URL="http://${DOMAIN}"
+    fi
 else
     if [ "$DOMAIN" = "localhost" ]; then
-        APP_URL="http://${SERVER_IP}:${INTERNAL_PORT}"
+        APP_URL="http://${SERVER_IP}:${HTTP_PORT}"
     else
-        APP_URL="http://${DOMAIN}:${INTERNAL_PORT}"
+        APP_URL="http://${DOMAIN}:${HTTP_PORT}"
     fi
 fi
 
