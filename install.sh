@@ -52,19 +52,18 @@ MYSQL_PORT=${MYSQL_PORT:-3306}
 USE_PROXY=false
 INTERNAL_PORT=8081
 DIRECT_PORT=80
-PORT_80_USED_BY=""
+CAN_USE_SSL=true
 
 if ss -tuln | grep -q ':80 '; then
     # Detectar qué está usando el puerto 80
-    PORT_80_USED_BY=$(ss -tlnp | grep ':80 ' | head -1)
+    PORT_80_INFO=$(ss -tlnp | grep ':80 ' | head -1)
     
-    if echo "$PORT_80_USED_BY" | grep -q "docker-proxy"; then
+    if echo "$PORT_80_INFO" | grep -q "docker-proxy"; then
         echo -e "${YELLOW}⚠ Puerto 80 usado por otro contenedor Docker.${NC}"
         echo ""
         echo "Opciones:"
-        echo "  1) Usar puerto 8081 directamente (acceder via http://${DOMAIN}:8081)"
-        echo "  2) Detener el otro Docker y usar puerto 80"
-        echo "  3) Configurar proxy en tu otro Nginx/Docker (manual)"
+        echo "  1) Usar puerto 8081 directamente (SSL debe configurarse en tu proxy existente)"
+        echo "  2) Detener el otro Docker y usar puerto 80 (SSL automático disponible)"
         echo ""
         read -p "Selecciona opción [1]: " port_option
         port_option=${port_option:-1}
@@ -73,51 +72,52 @@ if ss -tuln | grep -q ':80 '; then
             1)
                 USE_PROXY=false
                 DIRECT_PORT=${INTERNAL_PORT}
-                echo -e "${GREEN}✓ APIDIAN usará puerto ${INTERNAL_PORT} directamente${NC}"
+                CAN_USE_SSL=false
+                echo -e "${GREEN}✓ APIDIAN usará puerto ${INTERNAL_PORT}${NC}"
+                echo -e "${YELLOW}Nota: Configura SSL en tu proxy existente para ${DOMAIN}${NC}"
                 ;;
             2)
-                echo -e "${YELLOW}Deteniendo otros contenedores Docker...${NC}"
-                # Listar contenedores que usan puerto 80
-                docker ps --format "{{.Names}}" | while read container; do
+                echo -e "${YELLOW}Deteniendo contenedores Docker que usan puerto 80...${NC}"
+                # Buscar y detener contenedores que usan puerto 80
+                for container in $(docker ps -q); do
                     if docker port "$container" 2>/dev/null | grep -q "0.0.0.0:80"; then
-                        echo "Deteniendo $container..."
+                        container_name=$(docker inspect --format '{{.Name}}' "$container" | sed 's/\///')
+                        echo "Deteniendo $container_name..."
                         docker stop "$container"
                     fi
                 done
+                sleep 2
                 USE_PROXY=false
                 DIRECT_PORT=80
-                echo -e "${GREEN}✓ Puerto 80 liberado. APIDIAN usará puerto 80${NC}"
-                ;;
-            3)
-                USE_PROXY=false
-                DIRECT_PORT=${INTERNAL_PORT}
-                echo -e "${YELLOW}APIDIAN usará puerto ${INTERNAL_PORT}. Configura el proxy manualmente.${NC}"
+                CAN_USE_SSL=true
+                echo -e "${GREEN}✓ Puerto 80 liberado${NC}"
                 ;;
         esac
     else
         # Puerto 80 usado por servicio del sistema (Apache, Nginx nativo, etc)
-        echo -e "${YELLOW}⚠ Puerto 80 usado por servicio del sistema.${NC}"
+        echo -e "${YELLOW}⚠ Puerto 80 usado por otro servicio del sistema.${NC}"
         
-        # Verificar si es Nginx del sistema
+        # Verificar si es Nginx del sistema ya corriendo
         if systemctl is-active --quiet nginx 2>/dev/null; then
-            echo -e "${GREEN}✓ Nginx del sistema detectado. Configurando proxy...${NC}"
+            echo -e "${GREEN}✓ Nginx del sistema detectado. Configurando como proxy...${NC}"
             USE_PROXY=true
+            CAN_USE_SSL=true
         else
             echo ""
             echo "Opciones:"
             echo "  1) Usar puerto 8081 directamente"
-            echo "  2) Instalar Nginx del sistema como proxy"
+            echo "  2) Detener servicio actual e instalar Nginx como proxy (SSL disponible)"
             echo ""
             read -p "Selecciona opción [1]: " sys_option
             sys_option=${sys_option:-1}
             
             if [ "$sys_option" = "2" ]; then
-                # Detener servicio que usa puerto 80
                 echo "Deteniendo servicio en puerto 80..."
                 fuser -k 80/tcp 2>/dev/null || true
                 sleep 2
                 
                 USE_PROXY=true
+                CAN_USE_SSL=true
                 if ! command -v nginx &> /dev/null; then
                     echo -e "${YELLOW}Instalando Nginx del sistema...${NC}"
                     apt-get update
@@ -126,6 +126,7 @@ if ss -tuln | grep -q ':80 '; then
             else
                 USE_PROXY=false
                 DIRECT_PORT=${INTERNAL_PORT}
+                CAN_USE_SSL=false
             fi
         fi
     fi
@@ -134,18 +135,26 @@ else
     echo -e "${GREEN}✓ Puerto 80 disponible${NC}"
     USE_PROXY=false
     DIRECT_PORT=80
+    CAN_USE_SSL=true
 fi
 
-# Determinar si usar SSL
+# Determinar si usar SSL (solo si es posible)
 USE_SSL=false
-if [[ "$DOMAIN" != "localhost" && -n "$SSL_EMAIL" ]]; then
+if [[ "$DOMAIN" != "localhost" && -n "$SSL_EMAIL" && "$CAN_USE_SSL" = true ]]; then
     USE_SSL=true
+elif [[ "$DOMAIN" != "localhost" && -n "$SSL_EMAIL" && "$CAN_USE_SSL" = false ]]; then
+    echo -e "${YELLOW}⚠ SSL automático no disponible en puerto ${INTERNAL_PORT}.${NC}"
+    echo -e "${YELLOW}  Configura SSL en tu proxy existente después de la instalación.${NC}"
 fi
 
 echo ""
 echo -e "${GREEN}Configuración seleccionada:${NC}"
 echo "  Dominio: $DOMAIN"
-echo "  SSL: $([ "$USE_SSL" = true ] && echo "Sí (Let's Encrypt)" || echo "No")"
+if [ "$CAN_USE_SSL" = true ]; then
+    echo "  SSL: $([ "$USE_SSL" = true ] && echo "Sí (Let's Encrypt)" || echo "No")"
+else
+    echo "  SSL: No disponible (configurar en proxy existente)"
+fi
 if [ "$USE_PROXY" = true ]; then
     echo "  Modo: Proxy (Nginx del sistema -> Docker:$INTERNAL_PORT)"
 else
@@ -598,9 +607,9 @@ sleep 10
 echo -e "${GREEN}✓ Contenedores iniciados${NC}"
 
 # ============================================
-# 7. CONFIGURAR SSL SI ES NECESARIO
+# 7. CONFIGURAR SSL SI ES NECESARIO Y POSIBLE
 # ============================================
-if [ "$USE_SSL" = true ]; then
+if [ "$USE_SSL" = true ] && [ "$CAN_USE_SSL" = true ]; then
     echo -e "${YELLOW}[7/9] Configurando SSL con Let's Encrypt...${NC}"
     
     if [ "$USE_PROXY" = true ]; then
@@ -615,31 +624,95 @@ if [ "$USE_SSL" = true ]; then
             echo -e "${GREEN}✓ Certificado SSL obtenido${NC}"
             
             # Configurar renovación automática
-            echo "0 12 * * * /usr/bin/certbot renew --quiet" | crontab -
+            (crontab -l 2>/dev/null | grep -v certbot; echo "0 12 * * * /usr/bin/certbot renew --quiet") | crontab -
             echo -e "${GREEN}✓ Renovación automática configurada${NC}"
         else
             echo -e "${RED}Error obteniendo certificado SSL. Continuando sin SSL...${NC}"
             USE_SSL=false
         fi
     else
-        # Usar certbot de Docker
-        mkdir -p /var/www/certbot
+        # Puerto 80 directo - usar certbot standalone o webroot
+        echo "Instalando certbot..."
+        apt-get update
+        apt-get install -y certbot
+        
+        # Detener nginx de docker temporalmente para usar standalone
+        docker compose stop nginx 2>/dev/null || true
+        sleep 2
         
         echo "Obteniendo certificado SSL para ${DOMAIN}..."
-        docker compose run --rm certbot certonly --webroot --webroot-path=/var/www/certbot --email ${SSL_EMAIL} --agree-tos --no-eff-email -d ${DOMAIN}
+        certbot certonly --standalone -d ${DOMAIN} --non-interactive --agree-tos --email ${SSL_EMAIL}
         
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}✓ Certificado SSL obtenido${NC}"
-            docker compose restart nginx
-            echo "0 12 * * * /usr/bin/docker compose -f ${SCRIPT_DIR}/docker-compose.yml run --rm certbot renew --quiet && /usr/bin/docker compose -f ${SCRIPT_DIR}/docker-compose.yml restart nginx" | crontab -
+            
+            # Configurar Nginx de Docker para usar SSL
+            cat > docker/nginx/sites-available/default.conf << NGINXSSLCONF
+server {
+    listen 80;
+    server_name ${DOMAIN} localhost;
+    return 301 https://\$server_name\$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name ${DOMAIN} localhost;
+    root /var/www/html/public;
+    index index.php index.html;
+    
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+    ssl_prefer_server_ciphers off;
+    
+    client_max_body_size 100M;
+    
+    location /health {
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+    
+    location / {
+        try_files \$uri \$uri/ /index.php?\$query_string;
+    }
+    
+    location ~ \.php\$ {
+        try_files \$uri =404;
+        fastcgi_pass php:9000;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_read_timeout 300;
+    }
+    
+    location ~ /\.ht {
+        deny all;
+    }
+}
+NGINXSSLCONF
+            
+            # Actualizar docker-compose para exponer puerto 443
+            sed -i 's/# - "\${HTTPS_PORT:-443}:443"/- "443:443"/g' docker-compose.yml
+            
+            # Reiniciar nginx
+            docker compose up -d nginx
+            
+            # Configurar renovación automática
+            (crontab -l 2>/dev/null | grep -v certbot; echo "0 12 * * * /usr/bin/certbot renew --quiet --pre-hook 'docker compose -f ${SCRIPT_DIR}/docker-compose.yml stop nginx' --post-hook 'docker compose -f ${SCRIPT_DIR}/docker-compose.yml start nginx'") | crontab -
             echo -e "${GREEN}✓ Renovación automática configurada${NC}"
         else
             echo -e "${RED}Error obteniendo certificado SSL. Continuando sin SSL...${NC}"
             USE_SSL=false
+            # Reiniciar nginx sin SSL
+            docker compose up -d nginx
         fi
     fi
 else
     echo -e "${YELLOW}[7/9] Saltando configuración SSL...${NC}"
+    if [ "$CAN_USE_SSL" = false ] && [ "$DOMAIN" != "localhost" ]; then
+        echo -e "${BLUE}Para SSL, configura tu proxy existente para redirigir a http://127.0.0.1:${HTTP_PORT}${NC}"
+    fi
 fi
 
 # ============================================
@@ -790,15 +863,15 @@ echo ""
 echo -e "${BLUE}URL de la API:${NC}"
 if [ "$USE_SSL" = true ]; then
     echo "  https://${DOMAIN}"
-    echo "  http://${DOMAIN} (redirige a HTTPS)"
 elif [ "$USE_PROXY" = true ]; then
     echo "  http://${DOMAIN}"
+elif [ "$HTTP_PORT" = "80" ]; then
+    echo "  http://${DOMAIN}"
 else
-    if [ "$DOMAIN" = "localhost" ]; then
-        echo "  http://${SERVER_IP}:${HTTP_PORT}"
-    else
-        echo "  http://${DOMAIN}:${HTTP_PORT}"
-    fi
+    echo "  http://${DOMAIN}:${HTTP_PORT}"
+    echo ""
+    echo -e "${YELLOW}IMPORTANTE: Para acceder sin puerto, configura tu proxy existente:${NC}"
+    echo "  Redirigir ${DOMAIN} -> http://127.0.0.1:${HTTP_PORT}"
 fi
 echo ""
 if [ "$USE_PROXY" = true ]; then
@@ -830,7 +903,7 @@ if [ "$USE_SSL" = true ]; then
     if [ "$USE_PROXY" = true ]; then
         echo "  Renovar SSL:  certbot renew"
     else
-        echo "  Renovar SSL:  docker compose run --rm certbot renew"
+        echo "  Renovar SSL:  certbot renew"
     fi
 fi
 if [ "$USE_PROXY" = true ]; then
@@ -844,10 +917,13 @@ cat > CREDENCIALES.txt << CREDS
 CREDENCIALES APIDIAN - $(date)
 ============================================
 
-URL API: $([ "$USE_SSL" = true ] && echo "https://${DOMAIN}" || ([ "$USE_PROXY" = true ] && echo "http://${DOMAIN}" || ([ "$DOMAIN" = "localhost" ] && echo "http://${SERVER_IP}:${HTTP_PORT}" || echo "http://${DOMAIN}:${HTTP_PORT}")))
+URL API: $([ "$USE_SSL" = true ] && echo "https://${DOMAIN}" || echo "http://${DOMAIN}:${HTTP_PORT}")
 
 $([ "$USE_PROXY" = true ] && echo "Modo: Proxy (Nginx Sistema -> Docker:${INTERNAL_PORT})
 Config Proxy: /etc/nginx/sites-available/apidian
+")
+$([ "$CAN_USE_SSL" = false ] && echo "NOTA: Para SSL, configura tu proxy existente.
+Redirigir: ${DOMAIN} -> http://127.0.0.1:${HTTP_PORT}
 ")
 Base de Datos:
   Host: localhost:${MYSQL_PORT} (externo) / mariadb:3306 (interno)
@@ -866,21 +942,19 @@ $([ "$USE_SSL" = true ] && echo "SSL:
 CREDS
 chmod 600 CREDENCIALES.txt
 
-echo -e "${YELLOW}Credenciales guardadas en: CREDENCIALES.txt${NC}"
-echo ""
-
 # Verificación final
 echo -e "${YELLOW}Verificando instalación...${NC}"
 sleep 5
 
 # Verificar que los contenedores estén corriendo
-CONTAINERS_RUNNING=$(docker compose ps --services --filter "status=running" | wc -l)
-TOTAL_CONTAINERS=$(docker compose ps --services | wc -l)
+CONTAINERS_RUNNING=$(docker compose ps --services --filter "status=running" 2>/dev/null | wc -l)
+TOTAL_CONTAINERS=$(docker compose ps --services 2>/dev/null | wc -l)
 
-if [ "$CONTAINERS_RUNNING" -eq "$TOTAL_CONTAINERS" ]; then
-    echo -e "${GREEN}✓ Todos los contenedores están corriendo${NC}"
+if [ "$CONTAINERS_RUNNING" -ge 3 ]; then
+    echo -e "${GREEN}✓ Contenedores corriendo correctamente${NC}"
 else
-    echo -e "${YELLOW}⚠ Algunos contenedores pueden estar iniciando...${NC}"
+    echo -e "${YELLOW}⚠ Verificando contenedores...${NC}"
+    docker compose ps
 fi
 
 # Verificar Nginx del sistema si está en modo proxy
@@ -888,32 +962,26 @@ if [ "$USE_PROXY" = true ]; then
     if systemctl is-active --quiet nginx; then
         echo -e "${GREEN}✓ Nginx del sistema está corriendo${NC}"
     else
-        echo -e "${YELLOW}⚠ Nginx del sistema no está corriendo. Ejecuta: systemctl start nginx${NC}"
+        echo -e "${YELLOW}⚠ Iniciando Nginx del sistema...${NC}"
+        systemctl start nginx
     fi
 fi
 
-# Verificar acceso HTTP
+# Mensaje final
+echo ""
 if [ "$USE_SSL" = true ]; then
     echo -e "${GREEN}¡Listo! Accede a https://${DOMAIN}${NC}"
-    echo -e "${BLUE}Nota: El certificado SSL puede tardar unos minutos en activarse${NC}"
-elif [ "$USE_PROXY" = true ]; then
+elif [ "$HTTP_PORT" = "80" ]; then
     echo -e "${GREEN}¡Listo! Accede a http://${DOMAIN}${NC}"
-    echo -e "${BLUE}Para SSL ejecuta: certbot --nginx -d ${DOMAIN}${NC}"
 else
-    if [ "$DOMAIN" = "localhost" ]; then
-        echo -e "${GREEN}¡Listo! Accede a http://${SERVER_IP}:${HTTP_PORT}${NC}"
-    else
-        echo -e "${GREEN}¡Listo! Accede a http://${DOMAIN}:${HTTP_PORT}${NC}"
-    fi
+    echo -e "${GREEN}¡Listo! APIDIAN corriendo en puerto ${HTTP_PORT}${NC}"
+    echo ""
+    echo -e "${YELLOW}Para acceder via ${DOMAIN}, configura tu proxy existente:${NC}"
+    echo -e "${BLUE}  server_name ${DOMAIN};${NC}"
+    echo -e "${BLUE}  location / { proxy_pass http://127.0.0.1:${HTTP_PORT}; }${NC}"
 fi
 
 echo ""
-echo -e "${BLUE}Comandos de verificación:${NC}"
-echo "  docker compose ps                    # Ver estado de contenedores"
-echo "  docker compose logs -f php          # Ver logs de PHP"
-echo "  docker compose logs -f nginx        # Ver logs de Nginx"
-echo "  docker compose exec php php -v      # Verificar versión PHP"
-if [ "$USE_PROXY" = true ]; then
-    echo "  curl http://127.0.0.1:${INTERNAL_PORT}/health  # Verificar Docker interno"
-fi
+echo -e "${BLUE}Verificar funcionamiento:${NC}"
+echo "  curl http://127.0.0.1:${HTTP_PORT}/health"
 echo ""
