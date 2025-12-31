@@ -722,6 +722,10 @@ echo -e "${YELLOW}[8/9] Instalando dependencias...${NC}"
 
 # Descomprimir storage.zip (según guía)
 if [ -f "storage.zip" ]; then
+    # Instalar unzip si no existe
+    if ! command -v unzip &> /dev/null; then
+        apt-get install -y unzip
+    fi
     unzip -o storage.zip
 fi
 
