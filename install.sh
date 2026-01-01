@@ -125,6 +125,11 @@ read -p "¿Continuar? (s/n): " confirm
 # ============================================
 echo -e "${YELLOW}[1/9] Verificando Docker y dependencias...${NC}"
 
+# Configurar timezone de Colombia (requerido para firmas DIAN)
+echo "Configurando timezone America/Bogota..."
+timedatectl set-timezone America/Bogota 2>/dev/null || ln -sf /usr/share/zoneinfo/America/Bogota /etc/localtime
+echo -e "${GREEN}✓ Timezone configurado: America/Bogota${NC}"
+
 # Instalar unzip si no existe
 if ! command -v unzip &> /dev/null; then
     apt-get update
@@ -273,7 +278,12 @@ RUN echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/opcache.ini \
     && echo "opcache.fast_shutdown=1" >> /usr/local/etc/php/conf.d/opcache.ini
 
 RUN echo "realpath_cache_size=4096K" >> /usr/local/etc/php/conf.d/custom.ini \
-    && echo "realpath_cache_ttl=600" >> /usr/local/etc/php/conf.d/custom.ini
+    && echo "realpath_cache_ttl=600" >> /usr/local/etc/php/conf.d/custom.ini \
+    && echo "date.timezone=America/Bogota" >> /usr/local/etc/php/conf.d/custom.ini
+
+# Configurar timezone del sistema
+ENV TZ=America/Bogota
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN echo "[www]" > /usr/local/etc/php-fpm.d/zz-performance.conf \
     && echo "pm = dynamic" >> /usr/local/etc/php-fpm.d/zz-performance.conf \
@@ -618,7 +628,10 @@ docker compose exec -T php php artisan migrate --seed --force || echo -e "${YELL
 
 docker compose exec -T php chmod -R 777 /var/www/html/storage
 docker compose exec -T php chmod -R 777 /var/www/html/bootstrap/cache
-docker compose exec -T php chmod -R 777 /var/www/html/vendor/mpdf/mpdf || true
+
+# Permisos para mPDF (generación de PDFs)
+docker compose exec -T php mkdir -p /var/www/html/vendor/mpdf/mpdf/tmp
+docker compose exec -T php chmod -R 777 /var/www/html/vendor/mpdf || true
 
 docker compose exec -T php php artisan config:cache
 docker compose exec -T php php artisan config:clear
