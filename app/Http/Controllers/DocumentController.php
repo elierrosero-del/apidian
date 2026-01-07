@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Document;
+use App\DocumentPayroll;
 use App\Company;
 use App\User;
 use App\Http\Resources\DocumentCollection;
@@ -37,6 +38,13 @@ class DocumentController extends Controller
 
     public function records(Request $request)
     {
+        // Verificar si es consulta de nómina (type 6 o 7) o type 9/10 (NI/NA del POS)
+        $isPayroll = $request->has('type') && in_array($request->type, ['6', '7', '9', '10', 6, 7, 9, 10]);
+        
+        if ($isPayroll) {
+            return $this->recordsPayroll($request);
+        }
+        
         $query = Document::query();
         
         // Filtrar por empresa (identification_number)
@@ -137,6 +145,118 @@ class DocumentController extends Controller
                 'type_document_name' => $typeDocName,
                 'environment' => $environment, // 1=Producción, 2=Habilitación
                 'identification_number' => $row->identification_number,
+            ];
+        }
+        
+        return response()->json([
+            'data' => $data,
+            'total' => $total,
+            'page' => (int)$page,
+            'per_page' => (int)$perPage,
+            'last_page' => ceil($total / $perPage)
+        ]);
+    }
+
+    /**
+     * Obtener registros de nómina electrónica
+     */
+    private function recordsPayroll(Request $request)
+    {
+        $query = DocumentPayroll::query();
+        
+        // Filtrar por empresa (identification_number)
+        if ($request->has('company') && $request->company) {
+            $query->where('identification_number', $request->company);
+        }
+        
+        // Filtrar por tipo de documento
+        // Frontend envía: 6 = Nómina, 7 = Nómina Ajuste
+        // BD usa: 9 = NI (Nómina Individual), 10 = NA (Nota de Ajuste)
+        if ($request->has('type') && $request->type) {
+            $typeId = $request->type;
+            if (in_array($typeId, ['6', 6])) {
+                $query->where('type_document_id', 9); // NI - Nómina Individual
+            } elseif (in_array($typeId, ['7', 7])) {
+                $query->where('type_document_id', 10); // NA - Nota de Ajuste
+            } elseif (in_array($typeId, ['9', 9])) {
+                $query->where('type_document_id', 9);
+            } elseif (in_array($typeId, ['10', 10])) {
+                $query->where('type_document_id', 10);
+            }
+        }
+        
+        // Búsqueda por consecutivo o empleado
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('consecutive', 'like', '%' . $search . '%')
+                  ->orWhere('prefix', 'like', '%' . $search . '%');
+            });
+        }
+        
+        // Paginación
+        $perPage = $request->get('per_page', 15);
+        $page = $request->get('page', 1);
+        
+        $total = $query->count();
+        $records = $query->orderBy('created_at', 'desc')
+                        ->skip(($page - 1) * $perPage)
+                        ->take($perPage)
+                        ->get();
+        
+        // Procesar documentos
+        $data = [];
+        foreach ($records as $key => $row) {
+            // Obtener ambiente de la empresa
+            $environment = 2;
+            if ($row->identification_number) {
+                $company = Company::where('identification_number', $row->identification_number)->first();
+                if ($company && $company->payroll_type_environment_id) {
+                    $environment = $company->payroll_type_environment_id;
+                }
+            }
+            
+            // Determinar estado
+            $stateId = $row->state_document_id ?? 0;
+            $hasCune = $row->cune && strlen($row->cune) > 10;
+            
+            $stateName = 'Pendiente';
+            $stateClass = 'warning';
+            $canResend = true;
+            
+            if ($stateId == 1 && $hasCune) {
+                $stateName = 'Procesado';
+                $stateClass = 'success';
+                $canResend = false;
+            } elseif ($stateId == 1 && !$hasCune) {
+                $stateName = 'Enviado';
+                $stateClass = 'info';
+            }
+            
+            // Tipo de documento
+            $typeDocId = $row->type_document_id;
+            $typeDocName = $typeDocId == 9 ? 'Nómina' : 'Nómina Ajuste';
+            
+            $data[] = [
+                'key' => $key + 1,
+                'id' => $row->id,
+                'number' => $row->consecutive,
+                'prefix' => $row->prefix,
+                'client' => 'Empleado #' . ($row->employee_id ?? 'N/A'),
+                'date' => $row->date_issue,
+                'total' => $row->total_payroll,
+                'xml' => $row->xml,
+                'pdf' => $row->pdf,
+                'cufe' => $row->cune, // CUNE para nómina
+                'state_id' => $stateId,
+                'state_name' => $stateName,
+                'state_class' => $stateClass,
+                'can_resend' => $canResend,
+                'type_document_name' => $typeDocName,
+                'type_document_id' => $typeDocId,
+                'environment' => $environment,
+                'identification_number' => $row->identification_number,
+                'is_payroll' => true,
             ];
         }
         
