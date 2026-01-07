@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="card shadow-sm" style="border:none;border-radius:12px;">
+<div class="card shadow-sm" style="border:none;border-radius:12px;margin-top:200px;">
     <div class="card-header" style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);padding:18px 24px;border:none;">
         <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-0 text-white" style="font-weight:600;font-size:16px;">
@@ -76,6 +76,7 @@
 .badge-on{background:#dcfce7;color:#166534;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;}
 .badge-off{background:#fee2e2;color:#991b1b;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;}
 .dropdown-menu{border:none;box-shadow:0 10px 40px rgba(0,0,0,0.15);border-radius:12px;padding:8px;min-width:180px;}
+.dropup .dropdown-menu{bottom:100%;top:auto;margin-bottom:5px;}
 .dropdown-item{font-size:13px;padding:10px 16px;border-radius:8px;margin:2px 0;}
 .dropdown-item:hover{background:#fff7ed;}
 .dropdown-item i{width:20px;margin-right:6px;}
