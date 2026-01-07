@@ -187,6 +187,7 @@
 }
 </style>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 let page = 1, pages = 1, total = 0, timeout = null;
 const DIAN = {
@@ -310,49 +311,79 @@ function changePage(dir) {
 }
 
 function resend(id) {
-    if (confirm('¿Reenviar documento a la DIAN?')) {
-        // Mostrar loading
-        var btn = event.target.closest('button');
-        var originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
-        btn.disabled = true;
-        
-        fetch('/documents/resend/' + id, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            }
-        })
-        .then(function(response) {
-            return response.json().then(function(data) {
-                return { status: response.status, data: data };
+    Swal.fire({
+        title: 'Reenviar Documento',
+        text: '¿Desea reenviar este documento a la DIAN?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#f97316',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Sí, reenviar',
+        cancelButtonText: 'Cancelar'
+    }).then(function(result) {
+        if (result.isConfirmed) {
+            // Mostrar loading
+            Swal.fire({
+                title: 'Enviando...',
+                text: 'Procesando documento con la DIAN',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: function() {
+                    Swal.showLoading();
+                }
             });
-        })
-        .then(function(result) {
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
             
-            if (result.data.success) {
-                alert('✅ ' + result.data.message + (result.data.cufe ? '\n\nCUFE/CUDS: ' + result.data.cufe : ''));
-                load(); // Recargar la lista
-            } else {
-                var errorMsg = result.data.message;
-                if (result.data.errors && result.data.errors.length > 0) {
-                    errorMsg += '\n\nErrores DIAN:\n' + result.data.errors.join('\n');
+            fetch('/documents/resend/' + id, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                 }
-                if (result.data.dian_status) {
-                    errorMsg += '\n\nEstado: ' + result.data.dian_status;
+            })
+            .then(function(response) {
+                return response.json().then(function(data) {
+                    return { status: response.status, data: data };
+                });
+            })
+            .then(function(result) {
+                if (result.data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Documento Procesado',
+                        html: result.data.message + (result.data.cufe ? '<br><br><small><strong>CUFE/CUDS:</strong><br>' + result.data.cufe + '</small>' : ''),
+                        confirmButtonColor: '#f97316'
+                    });
+                    load(); // Recargar la lista
+                } else {
+                    var errorHtml = '<p>' + result.data.message + '</p>';
+                    if (result.data.errors && result.data.errors.length > 0) {
+                        errorHtml += '<br><strong>Errores DIAN:</strong><ul style="text-align:left;font-size:12px;">';
+                        for (var i = 0; i < result.data.errors.length; i++) {
+                            errorHtml += '<li>' + result.data.errors[i] + '</li>';
+                        }
+                        errorHtml += '</ul>';
+                    }
+                    if (result.data.dian_status) {
+                        errorHtml += '<br><small><strong>Estado:</strong> ' + result.data.dian_status + '</small>';
+                    }
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error DIAN',
+                        html: errorHtml,
+                        confirmButtonColor: '#f97316'
+                    });
                 }
-                alert('❌ ' + errorMsg);
-            }
-        })
-        .catch(function(error) {
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-            alert('❌ Error de conexión: ' + error.message);
-        });
-    }
+            })
+            .catch(function(error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de Conexión',
+                    text: error.message,
+                    confirmButtonColor: '#f97316'
+                });
+            });
+        }
+    });
 }
 </script>
 @endsection
