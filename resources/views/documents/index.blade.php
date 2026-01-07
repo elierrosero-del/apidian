@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="card">
-    <div class="card-header">
+<div class="card" style="border: none; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+    <div class="card-header" style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 18px 24px; border: none; border-radius: 12px 12px 0 0;">
         <div class="d-flex justify-content-between align-items-center flex-wrap" style="gap: 10px;">
-            <h5 class="mb-0" style="font-weight: 600; color: #1e293b;">Lista de Documentos</h5>
+            <h5 class="mb-0" style="font-weight: 600; color: #fff;"><i class="fa fa-file-alt mr-2" style="color: #f97316;"></i>Lista de Documentos</h5>
             <div class="d-flex align-items-center" style="gap: 10px;">
-                <select id="filter-type" class="form-control form-control-sm" style="width: 150px;" onchange="applyFilters()">
+                <select id="filter-type" class="form-control form-control-sm" style="width: 150px; border-radius: 8px; border: none;" onchange="applyFilters()">
                     <option value="">Todos los tipos</option>
                     <option value="1">Facturas</option>
                     <option value="4">Notas Crédito</option>
@@ -17,9 +17,9 @@
                 </select>
                 <div class="input-group input-group-sm" style="width: 250px;">
                     <div class="input-group-prepend">
-                        <span class="input-group-text"><i class="fa fa-search"></i></span>
+                        <span class="input-group-text" style="border: none; background: #f1f5f9; border-radius: 8px 0 0 8px;"><i class="fa fa-search"></i></span>
                     </div>
-                    <input type="text" id="filter-search" class="form-control" placeholder="Buscar número o cliente..." onkeyup="debounceFilter()">
+                    <input type="text" id="filter-search" class="form-control" placeholder="Buscar número o cliente..." onkeyup="debounceFilter()" style="border: none; border-radius: 0 8px 8px 0;">
                 </div>
             </div>
         </div>
