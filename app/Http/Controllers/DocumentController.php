@@ -38,12 +38,15 @@ class DocumentController extends Controller
 
     public function records(Request $request)
     {
-        // Verificar si es consulta de nómina (type 6 o 7) o type 9/10 (NI/NA del POS)
-        $isPayroll = $request->has('type') && in_array($request->type, ['6', '7', '9', '10', 6, 7, 9, 10]);
+        // Verificar si es consulta específica de nómina (type 6 o 7)
+        $isPayrollOnly = $request->has('type') && in_array($request->type, ['6', '7', '9', '10', 6, 7, 9, 10]);
         
-        if ($isPayroll) {
+        if ($isPayrollOnly) {
             return $this->recordsPayroll($request);
         }
+        
+        // Si no hay filtro de tipo, combinar documentos normales + nómina
+        $includePayroll = !$request->has('type') || !$request->type;
         
         $query = Document::query();
         
@@ -58,7 +61,6 @@ class DocumentController extends Controller
         }
         
         // Búsqueda unificada (número o cliente)
-        // Nota: client es un campo JSON, no una relación
         if ($request->has('search') && $request->search) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -71,6 +73,11 @@ class DocumentController extends Controller
         $perPage = $request->get('per_page', 15);
         $page = $request->get('page', 1);
         
+        // Si incluimos nómina, necesitamos combinar resultados
+        if ($includePayroll) {
+            return $this->recordsCombined($request, $perPage, $page);
+        }
+        
         $total = $query->count();
         $records = $query->orderBy('created_at', 'desc')
                         ->skip(($page - 1) * $perPage)
@@ -78,75 +85,7 @@ class DocumentController extends Controller
                         ->get();
         
         // Procesar documentos con información adicional
-        $data = [];
-        foreach ($records as $key => $row) {
-            // Obtener ambiente de la empresa
-            $environment = 2; // Por defecto habilitación
-            if ($row->identification_number) {
-                $company = Company::where('identification_number', $row->identification_number)->first();
-                if ($company && $company->type_environment_id) {
-                    $environment = $company->type_environment_id;
-                }
-            }
-            
-            // Determinar estado real del documento
-            $stateId = $row->state_document_id ?? 0;
-            $hasCufe = $row->cufe && strlen($row->cufe) > 10;
-            
-            $stateName = 'Pendiente';
-            $stateClass = 'warning';
-            $canResend = true;
-            
-            if ($stateId == 1 && $hasCufe) {
-                $stateName = 'Procesado';
-                $stateClass = 'success';
-                $canResend = false;
-            } elseif ($stateId == 1 && !$hasCufe) {
-                $stateName = 'Enviado';
-                $stateClass = 'info';
-                $canResend = true;
-            } elseif ($stateId == 0 || !$hasCufe) {
-                $stateName = 'Pendiente';
-                $stateClass = 'warning';
-                $canResend = true;
-            }
-            
-            // Tipo de documento
-            $typeDocId = $row->type_document_id;
-            $typeDocName = 'Documento';
-            switch ($typeDocId) {
-                case 1: $typeDocName = 'Factura'; break;
-                case 2: $typeDocName = 'Factura Exp.'; break;
-                case 3: $typeDocName = 'Contingencia'; break;
-                case 4: $typeDocName = 'Nota Crédito'; break;
-                case 5: $typeDocName = 'Nota Débito'; break;
-                case 6: $typeDocName = 'Nómina'; break;
-                case 7: $typeDocName = 'Nómina Ajuste'; break;
-                case 11: $typeDocName = 'Doc. Soporte'; break;
-                case 12: $typeDocName = 'Nota Ajuste DS'; break;
-                case 13: $typeDocName = 'NC Doc. Soporte'; break;
-            }
-            
-            $data[] = [
-                'key' => $key + 1,
-                'id' => $row->id,
-                'number' => $row->number,
-                'prefix' => $row->prefix,
-                'client' => $row->client->name ?? 'N/A',
-                'date' => $row->date_issue,
-                'total' => $row->total,
-                'xml' => $row->xml,
-                'pdf' => $row->pdf,
-                'cufe' => $row->cufe,
-                'state_id' => $stateId,
-                'state_name' => $stateName,
-                'state_class' => $stateClass,
-                'can_resend' => $canResend,
-                'type_document_name' => $typeDocName,
-                'environment' => $environment, // 1=Producción, 2=Habilitación
-                'identification_number' => $row->identification_number,
-            ];
-        }
+        $data = $this->processDocuments($records);
         
         return response()->json([
             'data' => $data,
@@ -155,6 +94,212 @@ class DocumentController extends Controller
             'per_page' => (int)$perPage,
             'last_page' => ceil($total / $perPage)
         ]);
+    }
+
+    /**
+     * Combinar documentos normales y de nómina
+     */
+    private function recordsCombined(Request $request, int $perPage, int $page)
+    {
+        // Query para documentos normales
+        $docsQuery = Document::query();
+        if ($request->has('company') && $request->company) {
+            $docsQuery->where('identification_number', $request->company);
+        }
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $docsQuery->where(function($q) use ($search) {
+                $q->where('number', 'like', '%' . $search . '%')
+                  ->orWhere('client->name', 'like', '%' . $search . '%');
+            });
+        }
+        
+        // Query para nómina
+        $payrollQuery = DocumentPayroll::query();
+        if ($request->has('company') && $request->company) {
+            $payrollQuery->where('identification_number', $request->company);
+        }
+        if ($request->has('search') && $request->search) {
+            $search = $request->search;
+            $payrollQuery->where(function($q) use ($search) {
+                $q->where('consecutive', 'like', '%' . $search . '%')
+                  ->orWhere('prefix', 'like', '%' . $search . '%');
+            });
+        }
+        
+        // Contar totales
+        $totalDocs = $docsQuery->count();
+        $totalPayroll = $payrollQuery->count();
+        $total = $totalDocs + $totalPayroll;
+        
+        // Obtener registros ordenados por fecha
+        $docs = $docsQuery->orderBy('created_at', 'desc')->get();
+        $payrolls = $payrollQuery->orderBy('created_at', 'desc')->get();
+        
+        // Procesar y combinar
+        $allData = [];
+        
+        foreach ($docs as $row) {
+            $allData[] = $this->processDocument($row);
+        }
+        
+        foreach ($payrolls as $row) {
+            $allData[] = $this->processPayrollDocument($row);
+        }
+        
+        // Ordenar por fecha descendente
+        usort($allData, function($a, $b) {
+            return strtotime($b['date'] ?? '1970-01-01') - strtotime($a['date'] ?? '1970-01-01');
+        });
+        
+        // Paginar manualmente
+        $offset = ($page - 1) * $perPage;
+        $data = array_slice($allData, $offset, $perPage);
+        
+        // Reindexar keys
+        foreach ($data as $index => &$item) {
+            $item['key'] = $offset + $index + 1;
+        }
+        
+        return response()->json([
+            'data' => array_values($data),
+            'total' => $total,
+            'page' => (int)$page,
+            'per_page' => (int)$perPage,
+            'last_page' => ceil($total / $perPage)
+        ]);
+    }
+
+    /**
+     * Procesar un documento normal
+     */
+    private function processDocument($row): array
+    {
+        $environment = 2;
+        if ($row->identification_number) {
+            $company = Company::where('identification_number', $row->identification_number)->first();
+            if ($company && $company->type_environment_id) {
+                $environment = $company->type_environment_id;
+            }
+        }
+        
+        $stateId = $row->state_document_id ?? 0;
+        $hasCufe = $row->cufe && strlen($row->cufe) > 10;
+        
+        $stateName = 'Pendiente';
+        $stateClass = 'warning';
+        $canResend = true;
+        
+        if ($stateId == 1 && $hasCufe) {
+            $stateName = 'Procesado';
+            $stateClass = 'success';
+            $canResend = false;
+        } elseif ($stateId == 1 && !$hasCufe) {
+            $stateName = 'Enviado';
+            $stateClass = 'info';
+        }
+        
+        $typeDocId = $row->type_document_id;
+        $typeDocName = 'Documento';
+        switch ($typeDocId) {
+            case 1: $typeDocName = 'Factura'; break;
+            case 2: $typeDocName = 'Factura Exp.'; break;
+            case 3: $typeDocName = 'Contingencia'; break;
+            case 4: $typeDocName = 'Nota Crédito'; break;
+            case 5: $typeDocName = 'Nota Débito'; break;
+            case 11: $typeDocName = 'Doc. Soporte'; break;
+            case 12: $typeDocName = 'Nota Ajuste DS'; break;
+            case 13: $typeDocName = 'NC Doc. Soporte'; break;
+        }
+        
+        return [
+            'key' => 0,
+            'id' => $row->id,
+            'number' => $row->number,
+            'prefix' => $row->prefix,
+            'client' => $row->client->name ?? 'N/A',
+            'date' => $row->date_issue,
+            'total' => $row->total,
+            'xml' => $row->xml,
+            'pdf' => $row->pdf,
+            'cufe' => $row->cufe,
+            'state_id' => $stateId,
+            'state_name' => $stateName,
+            'state_class' => $stateClass,
+            'can_resend' => $canResend,
+            'type_document_name' => $typeDocName,
+            'type_document_id' => $typeDocId,
+            'environment' => $environment,
+            'identification_number' => $row->identification_number,
+            'is_payroll' => false,
+        ];
+    }
+
+    /**
+     * Procesar un documento de nómina
+     */
+    private function processPayrollDocument($row): array
+    {
+        $environment = 2;
+        if ($row->identification_number) {
+            $company = Company::where('identification_number', $row->identification_number)->first();
+            if ($company && $company->payroll_type_environment_id) {
+                $environment = $company->payroll_type_environment_id;
+            }
+        }
+        
+        $stateId = $row->state_document_id ?? 0;
+        $hasCune = !empty($row->cune) && strlen($row->cune) > 10;
+        
+        $stateName = 'Pendiente';
+        $stateClass = 'warning';
+        $canResend = true;
+        
+        // Si state_document_id es 1, está procesado
+        if ($stateId == 1) {
+            $stateName = 'Procesado';
+            $stateClass = 'success';
+            $canResend = false;
+        }
+        
+        $typeDocId = $row->type_document_id;
+        $typeDocName = $typeDocId == 9 ? 'Nómina' : 'Nómina Ajuste';
+        
+        return [
+            'key' => 0,
+            'id' => $row->id,
+            'number' => $row->prefix . $row->consecutive,
+            'prefix' => $row->prefix,
+            'client' => 'Empleado #' . ($row->employee_id ?? 'N/A'),
+            'date' => $row->date_issue,
+            'total' => $row->total_payroll,
+            'xml' => $row->xml,
+            'pdf' => $row->pdf,
+            'cufe' => $row->cune,
+            'state_id' => $stateId,
+            'state_name' => $stateName,
+            'state_class' => $stateClass,
+            'can_resend' => $canResend,
+            'type_document_name' => $typeDocName,
+            'type_document_id' => $typeDocId,
+            'environment' => $environment,
+            'identification_number' => $row->identification_number,
+            'is_payroll' => true,
+        ];
+    }
+
+    /**
+     * Procesar lista de documentos normales
+     */
+    private function processDocuments($records): array
+    {
+        $data = [];
+        foreach ($records as $key => $row) {
+            $item = $this->processDocument($row);
+            $item['key'] = $key + 1;
+            $data[] = $item;
+        }
+        return $data;
     }
 
     /**
@@ -174,14 +319,10 @@ class DocumentController extends Controller
         // BD usa: 9 = NI (Nómina Individual), 10 = NA (Nota de Ajuste)
         if ($request->has('type') && $request->type) {
             $typeId = $request->type;
-            if (in_array($typeId, ['6', 6])) {
+            if (in_array($typeId, ['6', 6, '9', 9])) {
                 $query->where('type_document_id', 9); // NI - Nómina Individual
-            } elseif (in_array($typeId, ['7', 7])) {
+            } elseif (in_array($typeId, ['7', 7, '10', 10])) {
                 $query->where('type_document_id', 10); // NA - Nota de Ajuste
-            } elseif (in_array($typeId, ['9', 9])) {
-                $query->where('type_document_id', 9);
-            } elseif (in_array($typeId, ['10', 10])) {
-                $query->where('type_document_id', 10);
             }
         }
         
@@ -207,57 +348,9 @@ class DocumentController extends Controller
         // Procesar documentos
         $data = [];
         foreach ($records as $key => $row) {
-            // Obtener ambiente de la empresa
-            $environment = 2;
-            if ($row->identification_number) {
-                $company = Company::where('identification_number', $row->identification_number)->first();
-                if ($company && $company->payroll_type_environment_id) {
-                    $environment = $company->payroll_type_environment_id;
-                }
-            }
-            
-            // Determinar estado
-            $stateId = $row->state_document_id ?? 0;
-            $hasCune = $row->cune && strlen($row->cune) > 10;
-            
-            $stateName = 'Pendiente';
-            $stateClass = 'warning';
-            $canResend = true;
-            
-            if ($stateId == 1 && $hasCune) {
-                $stateName = 'Procesado';
-                $stateClass = 'success';
-                $canResend = false;
-            } elseif ($stateId == 1 && !$hasCune) {
-                $stateName = 'Enviado';
-                $stateClass = 'info';
-            }
-            
-            // Tipo de documento
-            $typeDocId = $row->type_document_id;
-            $typeDocName = $typeDocId == 9 ? 'Nómina' : 'Nómina Ajuste';
-            
-            $data[] = [
-                'key' => $key + 1,
-                'id' => $row->id,
-                'number' => $row->consecutive,
-                'prefix' => $row->prefix,
-                'client' => 'Empleado #' . ($row->employee_id ?? 'N/A'),
-                'date' => $row->date_issue,
-                'total' => $row->total_payroll,
-                'xml' => $row->xml,
-                'pdf' => $row->pdf,
-                'cufe' => $row->cune, // CUNE para nómina
-                'state_id' => $stateId,
-                'state_name' => $stateName,
-                'state_class' => $stateClass,
-                'can_resend' => $canResend,
-                'type_document_name' => $typeDocName,
-                'type_document_id' => $typeDocId,
-                'environment' => $environment,
-                'identification_number' => $row->identification_number,
-                'is_payroll' => true,
-            ];
+            $item = $this->processPayrollDocument($row);
+            $item['key'] = $key + 1;
+            $data[] = $item;
         }
         
         return response()->json([
