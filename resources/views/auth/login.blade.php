@@ -417,7 +417,7 @@
                     </button>
                 </form>
 
-                @if(env('ALLOW_PUBLIC_REGISTER', true))
+                @if(env('ALLOW_PUBLIC_REGISTER', false))
                     <div class="divider">
                         <span>o</span>
                     </div>
