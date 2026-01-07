@@ -76,10 +76,9 @@
 .badge-hab{background:#fef3c7;color:#92400e;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;}
 .badge-on{background:#dcfce7;color:#166534;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;}
 .badge-off{background:#fee2e2;color:#991b1b;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;}
-.dropdown-menu{border:none;box-shadow:0 10px 40px rgba(0,0,0,0.15);border-radius:12px;padding:8px;min-width:180px;background:#fff!important;}
-.dropup .dropdown-menu{bottom:100%;top:auto;margin-bottom:5px;background:#fff!important;}
-.dropdown-item{font-size:13px;padding:10px 16px;border-radius:8px;margin:2px 0;}
-.dropdown-item:hover{background:#fff7ed;}
+.dropdown-menu,.dropup .dropdown-menu,#tblBody .dropdown-menu,#tblBody .dropup .dropdown-menu{border:none!important;box-shadow:0 10px 40px rgba(0,0,0,0.15)!important;border-radius:12px!important;padding:8px!important;min-width:180px!important;background-color:#fff!important;opacity:1!important;}
+.dropdown-item,#tblBody .dropdown-item{font-size:13px!important;padding:10px 16px!important;border-radius:8px!important;margin:2px 0!important;background:#fff!important;display:block!important;}
+.dropdown-item:hover,#tblBody .dropdown-item:hover{background:#fff7ed!important;}
 .dropdown-item i{width:20px;margin-right:6px;}
 
 /* Modal Empresas */
