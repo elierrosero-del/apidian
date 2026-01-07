@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="card shadow-sm" style="border:none;border-radius:12px;margin-top:200px;">
+<div class="card shadow-sm" style="border:none;border-radius:12px;overflow:visible;">
     <div class="card-header" style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);padding:18px 24px;border:none;">
         <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-0 text-white" style="font-weight:600;font-size:16px;">
@@ -16,7 +16,7 @@
             </div>
         </div>
     </div>
-    <div class="card-body p-0">
+    <div class="card-body p-0" style="overflow:visible;">
         <table class="table mb-0">
             <thead>
                 <tr style="background:#f8fafc;">
