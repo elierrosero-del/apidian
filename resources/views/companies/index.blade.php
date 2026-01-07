@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="card shadow-sm" style="border:none;border-radius:12px;overflow:hidden;">
+<div class="card shadow-sm" style="border:none;border-radius:12px;">
     <div class="card-header" style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);padding:18px 24px;border:none;">
         <div class="d-flex justify-content-between align-items-center">
             <h5 class="mb-0 text-white" style="font-weight:600;font-size:16px;">
@@ -16,8 +16,8 @@
             </div>
         </div>
     </div>
-    <div class="card-body p-0">
-        <table class="table mb-0">
+    <div class="card-body p-0" style="overflow:visible;">
+        <table class="table mb-0" style="overflow:visible;">
             <thead>
                 <tr style="background:#f8fafc;">
                     <th class="th-head">#</th>
@@ -64,9 +64,9 @@
 
 <style>
 .th-head{padding:14px 16px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid #e2e8f0;background:#f8fafc;}
-#tblBody tr{transition:background 0.15s;}
+#tblBody tr{transition:background 0.15s;position:relative;}
 #tblBody tr:hover{background:#fff7ed;}
-#tblBody td{padding:14px 16px;font-size:13px;vertical-align:middle;border-bottom:1px solid #f1f5f9;}
+#tblBody td{padding:14px 16px;font-size:13px;vertical-align:middle;border-bottom:1px solid #f1f5f9;position:relative;}
 .btn-orange{background:linear-gradient(135deg,#f97316,#ea580c);color:#fff!important;padding:10px 20px;border-radius:10px;font-weight:600;font-size:13px;text-decoration:none!important;display:inline-flex;align-items:center;gap:8px;border:none;cursor:pointer;box-shadow:0 4px 12px rgba(249,115,22,0.25);}
 .btn-orange:hover{box-shadow:0 6px 16px rgba(249,115,22,0.35);transform:translateY(-1px);}
 .btn-gray{background:#f1f5f9;color:#475569;padding:10px 20px;border-radius:10px;font-weight:600;font-size:13px;border:none;cursor:pointer;}
@@ -75,7 +75,8 @@
 .badge-hab{background:#fef3c7;color:#92400e;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;}
 .badge-on{background:#dcfce7;color:#166534;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;}
 .badge-off{background:#fee2e2;color:#991b1b;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;}
-.dropdown-menu{border:none;box-shadow:0 10px 40px rgba(0,0,0,0.12);border-radius:12px;padding:8px;min-width:180px;}
+.dropdown-menu{border:none;box-shadow:0 10px 40px rgba(0,0,0,0.12);border-radius:12px;padding:8px;min-width:180px;z-index:1050;position:absolute;}
+.dropdown{position:relative;}
 .dropdown-item{font-size:13px;padding:10px 16px;border-radius:8px;margin:2px 0;}
 .dropdown-item:hover{background:#fff7ed;}
 .dropdown-item i{width:20px;margin-right:6px;}
