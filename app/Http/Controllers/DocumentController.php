@@ -132,9 +132,20 @@ class DocumentController extends Controller
         $totalPayroll = $payrollQuery->count();
         $total = $totalDocs + $totalPayroll;
         
-        // Obtener registros ordenados por fecha
-        $docs = $docsQuery->orderBy('created_at', 'desc')->get();
-        $payrolls = $payrollQuery->orderBy('created_at', 'desc')->get();
+        // Calcular offset
+        $offset = ($page - 1) * $perPage;
+        
+        // Obtener solo los registros necesarios usando UNION con paginación
+        // Primero obtenemos más registros de los necesarios para poder ordenar correctamente
+        $limit = $perPage + $offset;
+        
+        $docs = $docsQuery->orderBy('created_at', 'desc')
+                          ->limit($limit)
+                          ->get();
+        
+        $payrolls = $payrollQuery->orderBy('created_at', 'desc')
+                                 ->limit($limit)
+                                 ->get();
         
         // Procesar y combinar
         $allData = [];
@@ -153,7 +164,6 @@ class DocumentController extends Controller
         });
         
         // Paginar manualmente
-        $offset = ($page - 1) * $perPage;
         $data = array_slice($allData, $offset, $perPage);
         
         // Reindexar keys
@@ -173,13 +183,20 @@ class DocumentController extends Controller
     /**
      * Procesar un documento normal
      */
-    private function processDocument($row): array
+    private function processDocument($row, $company = null): array
     {
         $environment = 2;
-        if ($row->identification_number) {
-            $company = Company::where('identification_number', $row->identification_number)->first();
-            if ($company && $company->type_environment_id) {
-                $environment = $company->type_environment_id;
+        if ($company) {
+            $environment = $company->type_environment_id ?? 2;
+        } elseif ($row->identification_number) {
+            // Cache de companies para evitar múltiples queries
+            static $companiesCache = [];
+            $nit = $row->identification_number;
+            if (!isset($companiesCache[$nit])) {
+                $companiesCache[$nit] = Company::where('identification_number', $nit)->first();
+            }
+            if ($companiesCache[$nit] && $companiesCache[$nit]->type_environment_id) {
+                $environment = $companiesCache[$nit]->type_environment_id;
             }
         }
         
@@ -238,13 +255,20 @@ class DocumentController extends Controller
     /**
      * Procesar un documento de nómina
      */
-    private function processPayrollDocument($row): array
+    private function processPayrollDocument($row, $company = null): array
     {
         $environment = 2;
-        if ($row->identification_number) {
-            $company = Company::where('identification_number', $row->identification_number)->first();
-            if ($company && $company->payroll_type_environment_id) {
-                $environment = $company->payroll_type_environment_id;
+        if ($company) {
+            $environment = $company->payroll_type_environment_id ?? 2;
+        } elseif ($row->identification_number) {
+            // Cache de companies para evitar múltiples queries
+            static $companiesCache = [];
+            $nit = $row->identification_number;
+            if (!isset($companiesCache[$nit])) {
+                $companiesCache[$nit] = Company::where('identification_number', $nit)->first();
+            }
+            if ($companiesCache[$nit] && $companiesCache[$nit]->payroll_type_environment_id) {
+                $environment = $companiesCache[$nit]->payroll_type_environment_id;
             }
         }
         
