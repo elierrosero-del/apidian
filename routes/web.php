@@ -11,8 +11,7 @@
 |
 */
 /**/
-// Deshabilitar registro público - solo login y password reset
-Auth::routes(['register' => false]);
+Auth::routes();
 Route::get('/ownerapilogin', 'OwnerApiLoginController@ShowOwnerLoginForm');
 Route::get('/okownerlogin', 'OwnerApiLoginController@PasswordOwnerVerify')->name('homeowner');
 Route::get('/okownersearch', 'OwnerApiLoginController@OwnerSearch')->name('ownersearch');
