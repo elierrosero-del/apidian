@@ -16,8 +16,8 @@
             </div>
         </div>
     </div>
-    <div class="card-body p-0" style="overflow:visible;">
-        <table class="table mb-0" style="overflow:visible;">
+    <div class="card-body p-0">
+        <table class="table mb-0">
             <thead>
                 <tr style="background:#f8fafc;">
                     <th class="th-head">#</th>
@@ -75,12 +75,7 @@
 .badge-hab{background:#fef3c7;color:#92400e;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;}
 .badge-on{background:#dcfce7;color:#166534;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;}
 .badge-off{background:#fee2e2;color:#991b1b;padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;}
-.dropdown-menu{border:none;box-shadow:0 10px 40px rgba(0,0,0,0.15);border-radius:12px;padding:8px;min-width:180px;z-index:9999!important;}
-.dropdown{position:static!important;}
-#tblBody td:last-child{overflow:visible!important;position:relative;}
-.table{overflow:visible!important;}
-.card,.card-body{overflow:visible!important;}
-.dropdown-menu.show{display:block!important;}
+.dropdown-menu{border:none;box-shadow:0 10px 40px rgba(0,0,0,0.15);border-radius:12px;padding:8px;min-width:180px;}
 .dropdown-item{font-size:13px;padding:10px 16px;border-radius:8px;margin:2px 0;}
 .dropdown-item:hover{background:#fff7ed;}
 .dropdown-item i{width:20px;margin-right:6px;}
@@ -157,9 +152,9 @@ function render(){
             h+='<td><span class="badge-'+(c.state?'on':'off')+'">'+(c.state?'Activa':'Inactiva')+'</span></td>';
             h+='<td><span style="background:#e0f2fe;color:#0369a1;padding:4px 12px;border-radius:8px;font-size:12px;font-weight:600;">'+c.documents_count+'</span></td>';
             h+='<td style="color:#64748b;font-size:12px;">'+c.created_at+'</td>';
-            h+='<td style="text-align:center;position:relative;">';
-            h+='<div class="dropdown"><button class="btn btn-sm" style="background:#f1f5f9;border:none;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;color:#475569;" data-toggle="dropdown" data-boundary="viewport" data-display="static">Acciones <i class="fa fa-chevron-down ml-1" style="font-size:9px;"></i></button>';
-            h+='<div class="dropdown-menu dropdown-menu-right" style="position:absolute;transform:none!important;top:100%!important;right:0!important;left:auto!important;">';
+            h+='<td style="text-align:center;">';
+            h+='<div class="dropup"><button class="btn btn-sm" style="background:#f1f5f9;border:none;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;color:#475569;" data-toggle="dropdown">Acciones <i class="fa fa-chevron-up ml-1" style="font-size:9px;"></i></button>';
+            h+='<div class="dropdown-menu dropdown-menu-right">';
             h+='<a class="dropdown-item" href="#" onclick="edit('+c.id+');return false;"><i class="fa fa-edit text-primary"></i>Editar</a>';
             h+='<a class="dropdown-item" href="/documents?nit='+c.identification_number+'"><i class="fa fa-file-alt text-success"></i>Ver Documentos</a>';
             h+='<a class="dropdown-item" href="#" onclick="chgEnv('+c.id+','+c.type_environment_id+');return false;"><i class="fa fa-exchange-alt text-info"></i>Cambiar Ambiente</a>';
