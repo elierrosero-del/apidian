@@ -79,7 +79,7 @@ class ConfigurationController extends Controller
             'MAIL_HOST' => env('MAIL_HOST'),
             'MAIL_PORT' => env('MAIL_PORT'),
             'MAIL_USERNAME' => env('MAIL_USERNAME'),
-            'MAIL_PASSWORD' => env('MAIL_PASSWORD'),
+            // La contraseña SMTP no se expone en la API.
             'MAIL_ENCRYPTION' => env('MAIL_ENCRYPTION'),
         ];
     }
