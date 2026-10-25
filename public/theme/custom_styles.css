@@ -428,3 +428,501 @@ ul.nav-main ul.nav-children > li > a:hover {
     background: #f8fafc !important;
     color: var(--primary-color) !important;
 }
+
+/* ============================================
+   DASHBOARD HOME
+   ============================================ */
+.dashboard-home {
+    animation: fadeInUp 0.35s ease;
+}
+
+.welcome-hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 32px;
+    margin-bottom: 24px;
+    border-radius: 16px;
+    color: #ffffff;
+    overflow: hidden;
+    background: linear-gradient(135deg, #1e293b 0%, #334155 60%, #0f172a 100%);
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+}
+
+.welcome-hero::after {
+    content: "";
+    position: absolute;
+    top: -70px;
+    right: -70px;
+    width: 240px;
+    height: 240px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(249, 115, 22, 0.4), transparent 70%);
+}
+
+.welcome-eyebrow {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #fb923c;
+}
+
+.welcome-text h2 {
+    margin: 8px 0 6px;
+    font-size: 1.7rem;
+    font-weight: 700;
+}
+
+.welcome-text p {
+    margin: 0;
+    color: #cbd5e1;
+    font-size: 0.95rem;
+}
+
+.welcome-icon {
+    position: relative;
+    z-index: 1;
+    font-size: 58px;
+    color: rgba(255, 255, 255, 0.12);
+}
+
+.quick-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+}
+
+.quick-card,
+.quick-card:link,
+.quick-card:visited,
+.quick-card:hover {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: #ffffff;
+    border: 1px solid #eef2f7;
+    border-radius: 14px;
+    text-decoration: none;
+    color: inherit;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.quick-card:hover {
+    transform: translateY(-3px);
+    border-color: #fed7aa;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+.quick-icon {
+    flex: 0 0 52px;
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    font-size: 20px;
+    color: #ffffff;
+}
+
+.quick-icon-blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+.quick-icon-green { background: linear-gradient(135deg, #22c55e, #16a34a); }
+.quick-icon-orange { background: linear-gradient(135deg, #f97316, #ea580c); }
+.quick-icon-teal { background: linear-gradient(135deg, #14b8a6, #0d9488); }
+
+.quick-body h4 {
+    margin: 0 0 2px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.quick-body p {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #64748b;
+}
+
+.quick-arrow {
+    margin-left: auto;
+    color: #cbd5e1;
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.quick-card:hover .quick-arrow {
+    transform: translateX(4px);
+    color: #f97316;
+}
+
+/* ============================================
+   MOBILE SIDEBAR OVERLAY + CLOSE
+   ============================================ */
+.sidebar-overlay {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: rgba(15, 23, 42, 0.55);
+    opacity: 0;
+    visibility: hidden;
+    z-index: 97;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+
+html.sidebar-left-opened .sidebar-overlay {
+    opacity: 1;
+    visibility: visible;
+}
+
+.sidebar-close-btn {
+    position: fixed;
+    top: 70px;
+    right: 14px;
+    width: 40px;
+    height: 40px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    font-size: 18px;
+    cursor: pointer;
+    z-index: 1000;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    transition: background 0.2s ease;
+}
+
+.sidebar-close-btn:hover {
+    background: rgba(249, 115, 22, 0.85);
+}
+
+html.sidebar-left-opened .sidebar-close-btn {
+    display: inline-flex;
+}
+
+/* ============================================
+   RESPONSIVE GLOBAL
+   ============================================ */
+body {
+    -webkit-text-size-adjust: 100%;
+}
+
+@media (min-width: 768px) {
+    .sidebar-overlay,
+    .sidebar-close-btn {
+        display: none !important;
+    }
+}
+
+@media (max-width: 767px) {
+    .content-body {
+        padding: 16px 12px 90px !important;
+    }
+
+    .header .header-right {
+        box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+    }
+
+    .userbox .profile-info .name {
+        max-width: 150px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .userbox .profile-info .role {
+        display: none;
+    }
+
+    .card {
+        border-radius: 14px !important;
+    }
+
+    .card-header {
+        padding: 14px 16px !important;
+        font-size: 1rem !important;
+        border-radius: 14px 14px 0 0 !important;
+    }
+
+    .card-body {
+        padding: 16px !important;
+    }
+
+    /* Tablas con scroll horizontal en vez de comprimirse */
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table-responsive > .table {
+        min-width: 620px;
+    }
+
+    .table thead th,
+    .table tbody td {
+        white-space: nowrap;
+    }
+
+    /* Element UI */
+    .el-dialog,
+    .el-message-box {
+        width: 92% !important;
+    }
+
+    .el-pagination {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    /* Dashboard */
+    .welcome-hero {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 22px;
+    }
+
+    .welcome-icon {
+        display: none;
+    }
+
+    .welcome-text h2 {
+        font-size: 1.35rem;
+    }
+
+    .quick-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================
+   PANELES LEGACY (Bootstrap 3) -> TARJETAS
+   Aplica a los dashboards de cliente/empleado/vendedor/owner
+   ============================================ */
+.panel {
+    background: #ffffff;
+    border: none !important;
+    border-radius: 14px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06) !important;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.panel > .panel-heading,
+.panel-heading {
+    background: linear-gradient(135deg, #1e293b, #334155) !important;
+    color: #ffffff !important;
+    border: none !important;
+    padding: 18px 24px !important;
+    border-radius: 14px 14px 0 0 !important;
+}
+
+.panel-heading h1,
+.panel-heading h2,
+.panel-heading h3,
+.panel-heading h4 {
+    margin: 0;
+    font-size: 1.05rem !important;
+    font-weight: 600 !important;
+    color: #ffffff !important;
+}
+
+.panel-body {
+    padding: 20px 24px;
+}
+
+.panel .table {
+    margin-bottom: 0;
+}
+
+.panel .table > tbody > tr > td,
+.panel .table > thead > tr > th {
+    vertical-align: middle;
+}
+
+.panel .thead-dark th {
+    background: #1e293b !important;
+    color: #ffffff !important;
+    border-color: #334155 !important;
+}
+
+/* Contenedores dentro del área de contenido */
+.content-body > .container {
+    max-width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+.content-body > .container > .panel {
+    margin-bottom: 0;
+}
+
+/* ============================================
+   COMPANIES - TOOLBAR RESPONSIVE
+   ============================================ */
+.search-company {
+    width: 260px;
+}
+
+@media (max-width: 767px) {
+    .search-company {
+        width: 100% !important;
+    }
+
+    .card-header .d-flex.justify-content-between {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    /* Tablas de los dashboards: scroll horizontal en móvil */
+    .content-body .panel table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+    }
+
+    /* Modal de empresas */
+    #modalEdit .modal-dialog {
+        margin: 10px !important;
+        max-width: calc(100% - 20px) !important;
+    }
+
+    #modalEdit .fgrid-2,
+    #modalEdit .fgrid-3,
+    #modalEdit .fgrid-4 {
+        grid-template-columns: 1fr !important;
+    }
+
+    #modalEdit .modal-tabs {
+        overflow-x: auto;
+    }
+
+    #modalEdit #tabsNav {
+        flex-wrap: nowrap;
+    }
+
+    /* Element UI */
+    .el-table {
+        font-size: 12px !important;
+    }
+
+    .el-table .cell {
+        word-break: break-word;
+    }
+
+    /* Filtros de Documentos a ancho completo */
+    #filter-type {
+        width: 100% !important;
+    }
+
+    .card-header .input-group {
+        width: 100% !important;
+    }
+
+    /* ========================================
+       GESTIÓN DE EMPRESAS - TARJETAS EN MÓVIL
+       ======================================== */
+    .card {
+        max-width: 100%;
+    }
+
+    .companies-table {
+        border: 0;
+    }
+
+    .companies-table thead {
+        display: none;
+    }
+
+    .companies-table tbody {
+        display: block;
+    }
+
+    .companies-table tr {
+        display: block;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 6px 12px;
+        margin: 0 0 10px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    .companies-table td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 7px 0 !important;
+        border: none !important;
+        border-bottom: 1px dashed #eef2f7 !important;
+        white-space: normal !important;
+        font-size: 13px !important;
+        text-align: right !important;
+    }
+
+    .companies-table td:last-child {
+        border-bottom: none !important;
+    }
+
+    .companies-table td::before {
+        font-weight: 700;
+        color: #64748b;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        text-align: left;
+        flex: 0 0 auto;
+    }
+
+    .companies-table td:nth-child(1)::before { content: "#"; }
+    .companies-table td:nth-child(2)::before { content: "NIT"; }
+    .companies-table td:nth-child(3)::before { content: "Empresa"; }
+    .companies-table td:nth-child(4)::before { content: "Email"; }
+    .companies-table td:nth-child(5)::before { content: "Ambiente"; }
+    .companies-table td:nth-child(6)::before { content: "Estado"; }
+    .companies-table td:nth-child(7)::before { content: "Docs"; }
+    .companies-table td:nth-child(8)::before { content: "Fecha"; }
+    .companies-table td:nth-child(9)::before { content: "Acciones"; }
+
+    .companies-table .badge-prod,
+    .companies-table .badge-hab,
+    .companies-table .badge-on,
+    .companies-table .badge-off {
+        padding: 4px 10px !important;
+        font-size: 10px !important;
+        display: inline-block;
+    }
+
+    .companies-table .dropup {
+        display: inline-block;
+    }
+
+    .companies-table .dropup .btn {
+        padding: 6px 10px !important;
+        font-size: 11px !important;
+    }
+
+    /* Estado vacío */
+    .companies-table td[colspan] {
+        display: block !important;
+        text-align: center !important;
+        border-bottom: none !important;
+    }
+
+    .companies-table td[colspan]::before {
+        content: "" !important;
+    }
+}

@@ -30,9 +30,13 @@
         </td>
         <td style="width: 50%; padding: 0 1rem;" class="text-center vertical-align-top">
             <div id="empresa-header">
-                <strong>{{$user->name}}</strong><br>
-                @if(isset($request->establishment_name))
-                    <strong>{{$request->establishment_name}}</strong><br>
+                @php
+                    $issuerName = trim((string) ($user->name ?? ''));
+                    $estName = isset($request->establishment_name) ? trim((string) $request->establishment_name) : '';
+                @endphp
+                <strong>{{$issuerName}}</strong><br>
+                @if($estName !== '' && mb_strtolower($estName) !== mb_strtolower($issuerName))
+                    <strong>{{$estName}}</strong><br>
                 @endif
             </div>
             <div id="empresa-header1">
@@ -94,7 +98,9 @@
             </div>
         </td>
         <td style="width: 25%; text-align: right;" class="vertical-align-top">
+            @if(!empty($imgLogo))
             <img  style="width: 136px; height: auto;" src="{{$imgLogo}}" alt="logo">
+            @endif
         </td>
     </tr>
 </table>
